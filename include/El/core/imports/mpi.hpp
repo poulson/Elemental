@@ -10,7 +10,7 @@
 #pragma once
 #ifndef EL_IMPORTS_MPI_HPP
 #define EL_IMPORTS_MPI_HPP
-
+#include <limits>
 namespace El {
 
 namespace mpi {
@@ -28,6 +28,50 @@ namespace mpi {
 #else
 #define EL_NONBLOCKING_COLL(name) MPIX_ ## name
 #endif
+#endif
+
+// Use MPI-3 IBarrier in developing a Non-blocking 
+// consensus instead of El strict EOM matching
+// see - Scalable communication protocols for 
+// dynamic sparse data exchange by Hoefler, et al
+//#ifndef EL_USE_IBARRIER_FOR_AXPY
+//#define EL_USE_IBARRIER_FOR_AXPY
+//#endif
+
+//#ifndef EL_ENABLE_RMA_AXPY
+//#define EL_ENABLE_RMA_AXPY
+//#endif
+
+// Use derived datatypes for strided
+// vector communication patterns
+//#ifndef EL_USE_DERIVED_DATATYPE
+//#define EL_USE_DERIVED_DATATYPE
+//#endif
+
+// explicit progress for RMA
+//#ifndef EL_EXPLICIT_PROGRESS
+//#define EL_EXPLICIT_PROGRESS 
+//#endif
+
+// no acc ordering
+//#ifndef EL_NO_ACC_ORDERING
+//#define EL_NO_ACC_ORDERING
+//#endif
+
+// put/get atomicity
+//#ifndef EL_ENSURE_PUT_ATOMICITY
+//#define EL_ENSURE_PUT_ATOMICITY
+//#endif
+
+//#ifndef EL_ENSURE_GET_ATOMICITY
+//#define EL_ENSURE_GET_ATOMICITY
+//#endif
+
+#ifndef EL_INT_SAFE_CAST
+#define EL_INT_SAFE_CAST(x) \
+    (x < std::numeric_limits<int>::max () && \
+	x > std::numeric_limits<int>::min ())? \
+    static_cast<int>(x): (-99999)
 #endif
 
 struct Comm
@@ -67,11 +111,43 @@ typedef MPI_Datatype Datatype;
 typedef MPI_Errhandler ErrorHandler;
 typedef MPI_Request Request;
 typedef MPI_Status Status;
+typedef MPI_Message Message;
 typedef MPI_User_function UserFunction;
-
+#if MPI_VERSION>=3 && defined(EL_ENABLE_RMA_AXPY)
+typedef MPI_Win Window;
+typedef enum
+{
+	STRICT_ACC_ORDERING 	= 0,
+	PARTIAL_ACC_ORDERING 	= 2,
+	NO_ACC_ORDERING 	= 4
+} acc_order_t;
+#endif
+// for ddt
+#ifdef EL_USE_DERIVED_DATATYPE
+typedef struct El_strided_s
+{
+    unsigned num;
+    size_t* sizes;
+    MPI_Aint* offsets;
+} El_strided_t;
+typedef struct El_iov_s
+{
+    unsigned count;
+    size_t* sizes;
+    MPI_Aint* offsets;
+} El_iov_t;
+typedef enum
+{
+	FIXED_BLOCK_FIXED_STRIDE	= 1,
+	FIXED_BLOCK_VAR_STRIDE		= 2,
+	UNKNOWN_BLOCK_STRIDE		= 4
+} vector_pattern_t;
+#endif
+typedef MPI_Info Info;
 // Standard constants
 const int ANY_SOURCE = MPI_ANY_SOURCE;
 const int ANY_TAG = MPI_ANY_TAG;
+const int ERR_RANK = MPI_ERR_RANK;
 #ifdef EL_HAVE_MPI_QUERY_THREAD
 const int THREAD_SINGLE = MPI_THREAD_SINGLE;
 const int THREAD_FUNNELED = MPI_THREAD_FUNNELED;
@@ -92,6 +168,7 @@ const ErrorHandler ERRORS_RETURN = MPI_ERRORS_RETURN;
 const ErrorHandler ERRORS_ARE_FATAL = MPI_ERRORS_ARE_FATAL;
 const Group GROUP_EMPTY = MPI_GROUP_EMPTY;
 const Request REQUEST_NULL = MPI_REQUEST_NULL;
+
 const Op MAX = MPI_MAX;
 const Op MIN = MPI_MIN;
 const Op MAXLOC = MPI_MAXLOC;
@@ -169,14 +246,143 @@ void Translate
 ( Comm origComm, int size, const int* origRanks, 
   Comm newComm,                  int* newRanks );
 
+// Derived datatype
+// ================
+#ifdef EL_USE_DERIVED_DATATYPE
+// strided/vector to datatype
+void StridedDatatype (El_strided_t* stride_descr,
+	mpi::Datatype old_type, mpi::Datatype* new_type,
+	size_t* source_dims);
+void VectorDatatype (El_iov_t * vect_descr,
+	mpi::Datatype old_type, mpi::Datatype * new_type,
+	vector_pattern_t data_pattern);
+#endif // EL_USE_DERIVED_DATATYPE
+// MPI-3 one-sided
+// ===============
+#if MPI_VERSION>=3 && defined(EL_ENABLE_RMA_AXPY)
+// Utilities
+// ---------
+void SetWindowProp ( Window& window, int prop );
+void CheckBounds ( Window & window, mpi::Datatype win_type, mpi::Datatype type, 
+size_t count, ptrdiff_t target_offset );
+#ifdef EL_EXPLICIT_PROGRESS
+void RmaProgress ( Comm comm );
+#endif
+long ReadInc (Window & win, Aint offset, 
+	long inc, int fop_root);
+// Window creation/update/delete
+// -----------------------------
+void WindowLock( int rank, Window& window );
+void WindowLock( Window& window );
+void WindowUnlock( int rank, Window& window );
+void WindowUnlock( Window& window );
+void WindowCreate( void* baseptr, int size, Comm comm, Window& window );
+void WindowFree (Window & window);
+// One-sided operations
+// --------------------
+// put
+// ---
+template<typename R>
+void Iput (const R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window);
+template<typename R>
+void Iput (const Complex<R>* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window);
+template<typename R>
+void Rput (const R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window, 
+	   Request & request);
+template<typename R>
+void Rput (const Complex<R>* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window, 
+	   Request & request);
+template<typename T>
+void Iput( T source, int target_rank, Aint disp, Window& window );
+template<typename T>
+void Rput( T source, int target_rank, Aint disp, 
+	Window& window, Request& request );
+// get
+// ---
+template<typename R>
+void Iget (R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window);
+template<typename R>
+void Iget (Complex<R>* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window);
+template<typename R>
+void Rget (R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window, 
+	   Request & request);
+template<typename R>
+void Rget (Complex<R>* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window, 
+	   Request & request);
+template<typename T>
+void Iget( T source, int target_rank, Aint disp, Window& window );
+template<typename T>
+void Rget( T source, int target_rank, Aint disp, 
+	Window& window, Request& request );
+// acc
+// ---
+template<typename R>
+void Iacc (const R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Op op, Window & window);
+template<typename R>
+void Iacc (const Complex<R>* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Op op, Window & window);
+template<typename R>
+void Racc (const R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Op op, Window & window,
+           Request & request);
+template<typename R>
+void Racc (const Complex<R>* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Op op, Window & window,
+           Request & request);
+template<typename R>
+void Iacc (const R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window);
+template<typename R>
+void Racc (const R* source, int origin_count, int target_rank,
+           Aint disp, int target_count, Window & window,
+           Request & request);
+template<typename T>
+void Iacc (const T source, int target_rank, Aint disp, Window & window);
+template<typename T>
+void Racc (const T source, int target_rank, Aint disp, Window & window,
+           Request & request);
+// Synchronization
+// ---------------
+void Flush( int target_rank, Window& window );
+void Flush( Window & window );
+void FlushLocal( int target_rank, Window& window );
+void FlushLocal( Window & window );
+#endif // EL_ENABLE_RMA_AXPY
+
 // Utilities
 void Barrier( Comm comm );
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+void IBarrier( Comm comm, Request& request );
+#endif
+void RequestFree( Request& request );
 void Wait( Request& request );
 void Wait( Request& request, Status& status );
+//TODO add another function for getting statuses
+void WaitAny (int numRequests, Request * requests, Int * index);
 void WaitAll( int numRequests, Request* requests );
 void WaitAll( int numRequests, Request* requests, Status* statuses );
 bool Test( Request& request );
+bool Test( Request& request, Status& status );
+bool Testany( int count, Request* requests );
+bool Testany( int count, Request* requests, int& indx );
+bool Testany( int count, Request* requests, int& indx, Status& status );
 bool IProbe( int source, int tag, Comm comm, Status& status );
+bool IProbe( int source, Comm comm, Status& status );
+bool IProbe( Comm comm, Status& status );
+void Probe ( int source, int tag, Comm comm, Status & status );
+void Probe ( int source, Comm comm, Status & status );
+void Probe ( Comm comm, Status & status );
+// matching probe
+bool IMprobe( int source, int tag, Comm comm, Status& status, Message& message );
 
 template<typename T>
 int GetCount( Status& status );
@@ -253,6 +459,15 @@ T TaggedRecv( int from, int tag, Comm comm );
 // If the recv count is one and the tag is irrelevant
 template<typename T>
 T Recv( int from, Comm comm );
+// matched recv
+template<typename R>
+void TaggedMrecv( R* buf, int count, Message & message );
+template<typename R>
+void TaggedMrecv( Complex<R>* buf, int count, Message & message );
+template<typename R>
+void TaggedRecvS( R* buf, int count, int from, int tag, Comm comm, Status & status );
+template<typename R>
+void TaggedRecvS( Complex<R>* buf, int count, int from, int tag, Comm comm, Status & status );
 
 // Non-blocking recv
 // -----------------

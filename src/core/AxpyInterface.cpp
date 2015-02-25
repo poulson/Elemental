@@ -7,29 +7,29 @@
    This interface is mainly due to Martin Schatz, but it was put into its
    current form by Jack Poulson.
 
-   This file is part of Elemental and is under the BSD 2-Clause License, 
-   which can be found in the LICENSE file in the root directory, or at 
+   This file is part of Elemental and is under the BSD 2-Clause License,
+   which can be found in the LICENSE file in the root directory, or at
    http://opensource.org/licenses/BSD-2-Clause
 */
 #include "El.hpp"
 
-namespace El {
-
-template<typename T>
-bool AxpyInterface<T>::Finished()
+namespace El
 {
-    DEBUG_ONLY(
-        CallStackEntry cse("AxpyInterface::Finished");
-        if( !attachedForLocalToGlobal_ && !attachedForGlobalToLocal_ )
-            LogicError("Not attached");
-    )
-    const Grid& g = ( attachedForLocalToGlobal_ ? 
-                      localToGlobalMat_->Grid() : 
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+#else
+template <typename T> bool AxpyInterface <T>::Finished()
+{
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::Finished" );
+                if( !attachedForLocalToGlobal_ && !attachedForGlobalToLocal_ )
+                    LogicError( "Not attached" ); )
+    const Grid& g = ( attachedForLocalToGlobal_ ?
+	              localToGlobalMat_->Grid() :
                       globalToLocalMat_->Grid() );
-    const Int p = g.Size();
 
-    bool finished = true; 
-    for( Int rank=0; rank<p; ++rank )
+    const Int p = g.Size();
+    bool finished = true;
+
+    for( Int rank = 0; rank < p; ++rank )
     {
         if( !sentEomTo_[rank] || !haveEomFrom_[rank] )
         {
@@ -37,28 +37,28 @@ bool AxpyInterface<T>::Finished()
             break;
         }
     }
+
     return finished;
 }
 
-template<typename T>
-void AxpyInterface<T>::HandleEoms()
+template <typename T> void AxpyInterface <T>::HandleEoms()
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::HandleEoms"))
-    const Grid& g = ( attachedForLocalToGlobal_ ? 
-                      localToGlobalMat_->Grid() : 
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::HandleEoms" ) )
+    const Grid& g = ( attachedForLocalToGlobal_ ?
+                      localToGlobalMat_->Grid() :
                       globalToLocalMat_->Grid() );
     const Int p = g.Size();
-
     UpdateRequestStatuses();
 
     // Try to progress our EOM sends
-    for( Int i=0; i<p; ++i )
+    for( Int i = 0; i < p; ++i )
     {
         if( !sentEomTo_[i] )
         {
             bool shouldSendEom = true;
             const Int numSends = sendingData_[i].size();
-            for( Int j=0; j<numSends; ++j )
+
+            for( Int j = 0; j < numSends; ++j )
             {
                 if( sendingData_[i][j] )
                 {
@@ -66,17 +66,21 @@ void AxpyInterface<T>::HandleEoms()
                     break;
                 }
             }
+
             const Int numRequests = sendingRequest_[i].size();
-            for( Int j=0; j<numRequests; ++j )
+
+            for( Int j = 0; j < numRequests; ++j )
             {
                 if( !shouldSendEom || sendingRequest_[i][j] )
                 {
-                    shouldSendEom = false; 
+                    shouldSendEom = false;
                     break;
                 }
             }
+
             const Int numReplies = sendingReply_[i].size();
-            for( Int j=0; j<numReplies; ++j )
+
+            for( Int j = 0; j < numReplies; ++j )
             {
                 if( !shouldSendEom || sendingReply_[i][j] )
                 {
@@ -84,6 +88,7 @@ void AxpyInterface<T>::HandleEoms()
                     break;
                 }
             }
+
             if( shouldSendEom )
             {
                 mpi::Request& request = eomSendRequests_[i];
@@ -95,6 +100,7 @@ void AxpyInterface<T>::HandleEoms()
     }
 
     mpi::Status status;
+
     if( mpi::IProbe( mpi::ANY_SOURCE, EOM_TAG, g.VCComm(), status ) )
     {
         const Int source = status.MPI_SOURCE;
@@ -102,180 +108,178 @@ void AxpyInterface<T>::HandleEoms()
         haveEomFrom_[source] = true;
     }
 }
+#endif // EL_USE_IBARRIER_FOR_AXPY
 
-template<typename T>
-void AxpyInterface<T>::HandleLocalToGlobalData()
+template <typename T> void AxpyInterface <T>::HandleLocalToGlobalData()
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::HandleLocalToGlobalData"))
-    DistMatrix<T>& Y = *localToGlobalMat_;
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::HandleLocalToGlobalData" ) )
+    DistMatrix <T>& Y = *localToGlobalMat_;
     const Grid& g = Y.Grid();
     const Int r = g.Height();
     const Int c = g.Width();
     const Int myRow = g.Row();
     const Int myCol = g.Col();
-
     mpi::Status status;
+
     if( mpi::IProbe( mpi::ANY_SOURCE, DATA_TAG, g.VCComm(), status ) )
     {
-        // Message exists, so recv and pack    
+        // Message exists, so recv and pack
         const Int count = mpi::GetCount<byte>( status );
-        DEBUG_ONLY(
-            if( count < Int(4*sizeof(Int)+sizeof(T)) )
-                LogicError("Count was too small");
-        )
-        const Int source = status.MPI_SOURCE;
+
+        DEBUG_ONLY( if( count < Int( 4 * sizeof( Int ) + sizeof( T ) ) )
+                    LogicError( "Count was too small" ); )
+            const Int source = status.MPI_SOURCE;
+
         recvVector_.resize( count );
         byte* recvBuffer = recvVector_.data();
         mpi::TaggedRecv( recvBuffer, count, source, DATA_TAG, g.VCComm() );
-
         // Extract the header
         byte* head = recvBuffer;
-        const Int i = *reinterpret_cast<const Int*>(head); 
-        head += sizeof(Int);
-        const Int j = *reinterpret_cast<const Int*>(head); 
-        head += sizeof(Int);
-        const Int height = *reinterpret_cast<const Int*>(head); 
-        head += sizeof(Int);
-        const Int width = *reinterpret_cast<const Int*>(head); 
-        head += sizeof(Int);
-        const T alpha = *reinterpret_cast<const T*>(head); 
-        head += sizeof(T);
-        DEBUG_ONLY(
-            if( height < 0 || width < 0 )
-                RuntimeError
-                ("Unpacked heights were negative:\n",
-                 "  i=     ",i,std::hex,"(",i,")\n",std::dec,
-                 "  j=     ",j,std::hex,"(",j,")\n",std::dec,
-                 "  height=",height,std::hex,"(",height,")\n",std::dec, 
-                 "  width= ",width,std::hex,"(",width,")\n",std::dec,
-                 "  alpha= ",alpha);
-            if( i < 0 || j < 0 )
-                RuntimeError
-                ("Unpacked offsets were negative:\n",
-                 "  i=     ",i,std::hex,"(",i,")\n",std::dec,
-                 "  j=     ",j,std::hex,"(",j,")\n",std::dec,
-                 "  height=",height,std::hex,"(",height,")\n",std::dec,
-                 "  width= ",width,std::hex,"(",width,")\n",std::dec,
-                 "  alpha= ",alpha);
-            if( i+height > Y.Height() || j+width > Y.Width() )
-                RuntimeError
-                ("Unpacked submatrix was out of bounds:\n",
-                 "  i=     ",i,std::hex,"(",i,")\n",std::dec,
-                 "  j=     ",j,std::hex,"(",j,")\n",std::dec,
-                 "  height=",height,std::hex,"(",height,")\n",std::dec, 
-                 "  width= ",width,std::hex,"(",width,")\n",std::dec,
-                 "  alpha= ",alpha);
-        )
-
-        // Update Y
-        const T* XBuffer = reinterpret_cast<const T*>(head);
-        const Int colAlign = (Y.ColAlign()+i) % r;
-        const Int rowAlign = (Y.RowAlign()+j) % c;
+        const Int i = *reinterpret_cast <const Int*>( head );
+        head += sizeof( Int );
+        const Int j = *reinterpret_cast <const Int*>( head );
+        head += sizeof( Int );
+        const Int height = *reinterpret_cast <const Int*>( head );
+        head += sizeof( Int );
+        const Int width = *reinterpret_cast <const Int*>( head );
+        head += sizeof( Int );
+        const T alpha = *reinterpret_cast <const T*>( head );
+        head += sizeof( T );
+        DEBUG_ONLY ( if ( height < 0 || width < 0 )
+                     RuntimeError
+                     ( "Unpacked heights were negative:\n",
+                       "  i=     ", i, std::hex, "(", i, ")\n", std::dec,
+                       "  j=     ", j, std::hex, "(", j, ")\n", std::dec,
+                       "  height=", height, std::hex, "(", height, ")\n",
+                       std::dec, "  width= ", width, std::hex, "(", width,
+                       ")\n", std::dec, "  alpha= ", alpha );
+                     if ( i < 0 || j < 0 ) 
+		     RuntimeError 
+		     ( "Unpacked offsets were negative:\n",
+                       "  i=     ", i, std::hex, "(", i, ")\n", std::dec, 
+		       "  j=     ", j, std::hex, "(", j, ")\n", std::dec,
+                       "  height=", height, std::hex, "(", height, ")\n", 
+		       std::dec, "  width= ", width, std::hex, "(", width, 
+		       ")\n", std::dec, "  alpha= ", alpha );    
+		     if ( i + height > Y.Height () || j + width > Y.Width () )
+		     RuntimeError
+                     ( "Unpacked submatrix was out of bounds:\n", 
+		       "  i=     ", i, std::hex, "(", i, ")\n", std::dec, 
+		       "  j=     ", j, std::hex, "(", j, ")\n", std::dec, 
+		       "  height=", height, std::hex, "(", height, ")\n", 
+		       std::dec, "  width= ", width, std::hex, "(", width, 
+		       ")\n", std::dec, "  alpha= ", alpha ); 
+		     )
+                    
+	// Update Y
+        const T* XBuffer = reinterpret_cast <const T*>( head );
+        const Int colAlign = ( Y.ColAlign() + i ) % r;
+        const Int rowAlign = ( Y.RowAlign() + j ) % c;
         const Int colShift = Shift( myRow, colAlign, r );
         const Int rowShift = Shift( myCol, rowAlign, c );
-
         const Int localHeight = Length( height, colShift, r );
         const Int localWidth = Length( width, rowShift, c );
         const Int iLocalOffset = Length( i, Y.ColShift(), r );
         const Int jLocalOffset = Length( j, Y.RowShift(), c );
 
-        for( Int t=0; t<localWidth; ++t )
+        for( Int t = 0; t < localWidth; ++t )
         {
-            T* YCol = Y.Buffer(iLocalOffset,jLocalOffset+t);
-            const T* XCol = &XBuffer[t*localHeight];
-            for( Int s=0; s<localHeight; ++s )
-                YCol[s] += alpha*XCol[s];
+            T* YCol = Y.Buffer( iLocalOffset, jLocalOffset + t );
+            const T* XCol = &XBuffer[t * localHeight];
+
+            for( Int s = 0; s < localHeight; ++s )
+                YCol[s] += alpha * XCol[s];
         }
 
         // Free the memory for the recv buffer
         recvVector_.clear();
     }
 }
-    
-template<typename T>
-void AxpyInterface<T>::HandleGlobalToLocalRequest()
+
+template <typename T>
+void AxpyInterface <T>::HandleGlobalToLocalRequest()
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::HandleGlobalToLocalRequest"))
-    const DistMatrix<T>& X = *globalToLocalMat_;
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::HandleGlobalToLocalRequest" ) )
+    const DistMatrix <T>& X = *globalToLocalMat_;
     const Grid& g = X.Grid();
     const Int r = g.Height();
     const Int c = g.Width();
     const Int myRow = g.Row();
     const Int myCol = g.Col();
-
     mpi::Status status;
+
     if( mpi::IProbe( mpi::ANY_SOURCE, DATA_REQUEST_TAG, g.VCComm(), status ) )
     {
         // Request exists, so recv
         const Int source = status.MPI_SOURCE;
-        const Int recvSize = 4*sizeof(Int);
+        const Int recvSize = 4 * sizeof( Int );
         recvVector_.resize( recvSize );
         byte* recvBuffer = recvVector_.data();
-        mpi::TaggedRecv
+        
+	mpi::TaggedRecv
         ( recvBuffer, recvSize, source, DATA_REQUEST_TAG, g.VCComm() );
-
-        // Extract the header
+        
+	// Extract the header
         const byte* recvHead = recvBuffer;
-        const Int i = *reinterpret_cast<const Int*>(recvHead); 
-        recvHead += sizeof(Int);
-        const Int j = *reinterpret_cast<const Int*>(recvHead);
-        recvHead += sizeof(Int);
-        const Int height = *reinterpret_cast<const Int*>(recvHead);
-        recvHead += sizeof(Int);
-        const Int width = *reinterpret_cast<const Int*>(recvHead);
-        recvHead += sizeof(Int);
-
-        const Int colAlign = (X.ColAlign()+i) % r;
-        const Int rowAlign = (X.RowAlign()+j) % c;
+        const Int i = *reinterpret_cast <const Int*>( recvHead );
+        recvHead += sizeof( Int );
+        const Int j = *reinterpret_cast <const Int*>( recvHead );
+        recvHead += sizeof( Int );
+        const Int height = *reinterpret_cast <const Int*>( recvHead );
+        recvHead += sizeof( Int );
+        const Int width = *reinterpret_cast <const Int*>( recvHead );
+        recvHead += sizeof( Int );
+        
+	const Int colAlign = ( X.ColAlign() + i ) % r;
+        const Int rowAlign = ( X.RowAlign() + j ) % c;
         const Int colShift = Shift( myRow, colAlign, r );
         const Int rowShift = Shift( myCol, rowAlign, c );
-
         const Int iLocalOffset = Length( i, X.ColShift(), r );
         const Int jLocalOffset = Length( j, X.RowShift(), c );
         const Int localHeight = Length( height, colShift, r );
         const Int localWidth = Length( width, rowShift, c );
-        const Int numEntries = localHeight*localWidth;
-
-        const Int bufferSize = 2*sizeof(Int) + numEntries*sizeof(T);
-        const Int index = 
-            ReadyForSend
-            ( bufferSize, replyVectors_[source], 
-              replySendRequests_[source], sendingReply_[source] );
-
+        const Int numEntries = localHeight * localWidth;
+        const Int bufferSize = 2 * sizeof( Int ) + numEntries * sizeof( T );
+        const Int index = ReadyForSend( bufferSize, replyVectors_[source],
+                                        replySendRequests_[source],
+                                        sendingReply_[source] );
         // Pack the reply header
         byte* sendBuffer = replyVectors_[source][index].data();
         byte* sendHead = sendBuffer;
-        *reinterpret_cast<Int*>(sendHead) = myRow; sendHead += sizeof(Int);
-        *reinterpret_cast<Int*>(sendHead) = myCol; sendHead += sizeof(Int);
-
+        *reinterpret_cast <Int*>( sendHead ) = myRow;
+        sendHead += sizeof( Int );
+        *reinterpret_cast <Int*>( sendHead ) = myCol;
+        sendHead += sizeof( Int );
         // Pack the payload
-        T* sendData = reinterpret_cast<T*>(sendHead);
-        for( Int t=0; t<localWidth; ++t )
+        T* sendData = reinterpret_cast <T*>( sendHead );
+
+        for( Int t = 0; t < localWidth; ++t )
         {
-            T* sendCol = &sendData[t*localHeight];
-            const T* XCol = X.LockedBuffer(iLocalOffset,jLocalOffset+t);
+            T* sendCol = &sendData[t * localHeight];
+            const T* XCol = X.LockedBuffer( iLocalOffset, jLocalOffset + t );
             MemCopy( sendCol, XCol, localHeight );
         }
 
         // Fire off non-blocking send
         mpi::TaggedISSend
-        ( sendBuffer, bufferSize, source, DATA_REPLY_TAG, g.VCComm(), 
+        ( sendBuffer, bufferSize, source, DATA_REPLY_TAG, g.VCComm(),
           replySendRequests_[source][index] );
     }
 }
 
 template<typename T>
 AxpyInterface<T>::AxpyInterface()
-: attachedForLocalToGlobal_(false), attachedForGlobalToLocal_(false), 
-  localToGlobalMat_(0), globalToLocalMat_(0),
-  sendDummy_(0), recvDummy_(0)
+    : attachedForLocalToGlobal_( false ), attachedForGlobalToLocal_( false ),
+      localToGlobalMat_( 0 ), globalToLocalMat_( 0 ),
+      sendDummy_( 0 ), recvDummy_( 0 )
 { }
 
 template<typename T>
 AxpyInterface<T>::AxpyInterface( AxpyType type, DistMatrix<T>& Z )
-: sendDummy_(0), recvDummy_(0)
+    : sendDummy_( 0 ), recvDummy_( 0 )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::AxpyInterface"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::AxpyInterface" ) )
+
     if( type == LOCAL_TO_GLOBAL )
     {
         attachedForLocalToGlobal_ = true;
@@ -292,33 +296,34 @@ AxpyInterface<T>::AxpyInterface( AxpyType type, DistMatrix<T>& Z )
     }
 
     const Int p = Z.Grid().Size();
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+#else
     sentEomTo_.resize( p, false );
     haveEomFrom_.resize( p, false );
+    eomSendRequests_.resize( p );
+#endif
 
     sendingData_.resize( p );
     sendingRequest_.resize( p );
     sendingReply_.resize( p );
-
-    dataVectors_.resize( p );
-    requestVectors_.resize( p );
-    replyVectors_.resize( p );
-
+    
     dataSendRequests_.resize( p );
     requestSendRequests_.resize( p );
     replySendRequests_.resize( p );
-
-    eomSendRequests_.resize( p );
+    
+    dataVectors_.resize( p );
+    requestVectors_.resize( p );
+    replyVectors_.resize( p );
 }
 
 template<typename T>
 AxpyInterface<T>::AxpyInterface( AxpyType type, const DistMatrix<T>& X )
-: sendDummy_(0), recvDummy_(0)
+    : sendDummy_( 0 ), recvDummy_( 0 )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::AxpyInterface"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::AxpyInterface" ) )
+
     if( type == LOCAL_TO_GLOBAL )
-    {
-        LogicError("Cannot update a constant matrix");
-    }
+        LogicError( "Cannot update a constant matrix" );
     else
     {
         attachedForLocalToGlobal_ = false;
@@ -328,58 +333,60 @@ AxpyInterface<T>::AxpyInterface( AxpyType type, const DistMatrix<T>& X )
     }
 
     const Int p = X.Grid().Size();
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+#else
     sentEomTo_.resize( p, false );
     haveEomFrom_.resize( p, false );
-
+    eomSendRequests_.resize( p );
+#endif
     sendingData_.resize( p );
     sendingRequest_.resize( p );
     sendingReply_.resize( p );
-
-    dataVectors_.resize( p );
-    requestVectors_.resize( p );
-    replyVectors_.resize( p );
-
+   
     dataSendRequests_.resize( p );
     requestSendRequests_.resize( p );
     replySendRequests_.resize( p );
-
-    eomSendRequests_.resize( p );
+    
+    dataVectors_.resize( p );
+    requestVectors_.resize( p );
+    replyVectors_.resize( p );
 }
 
-template<typename T>
-AxpyInterface<T>::~AxpyInterface()
-{ 
+template <typename T> AxpyInterface <T>::~AxpyInterface()
+{
     if( attachedForLocalToGlobal_ || attachedForGlobalToLocal_ )
     {
         if( std::uncaught_exception() )
         {
-           const Grid& g = ( attachedForLocalToGlobal_ ? 
-                             localToGlobalMat_->Grid() : 
-                             globalToLocalMat_->Grid() );
-           ostringstream os;
-           os << g.Rank()
-              << "Uncaught exception detected during AxpyInterface destructor "
-                 "that required a call to Detach. Instead of allowing for the "
-                 "possibility of Detach throwing another exception and "
-                 "resulting in a 'terminate', we instead immediately dump the "
-                 "call stack (if not in RELEASE mode) since the program will "
-                 "likely hang:" << endl;
-           cerr << os.str();
-           DEBUG_ONLY(DumpCallStack())
+            const Grid& g = ( attachedForLocalToGlobal_ ?
+                              localToGlobalMat_->Grid() :
+                              globalToLocalMat_->Grid() );
+            std::ostringstream os;
+            os << g.Rank()
+               <<
+               "Uncaught exception detected during AxpyInterface destructor "
+               "that required a call to Detach. Instead of allowing for the "
+               "possibility of Detach throwing another exception and "
+               "resulting in a 'terminate', we instead immediately dump the "
+               "call stack (if not in RELEASE mode) since the program will "
+               "likely hang:" << std::endl;
+            std::cerr << os.str();
+            DEBUG_ONLY( DumpCallStack() )
         }
         else
-        {
-            Detach(); 
-        }
+            Detach();
     }
 }
 
-template<typename T>
-void AxpyInterface<T>::Attach( AxpyType type, DistMatrix<T>& Z )
+template <typename T>
+void AxpyInterface <T>::Attach( AxpyType type, DistMatrix <T>& Z )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::Attach"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::Attach" ) )
+
     if( attachedForLocalToGlobal_ || attachedForGlobalToLocal_ )
-        LogicError("Must detach before reattaching.");
+        LogicError( "Must detach before reattaching." );
+
+    const Grid& g = Z.Grid();
 
     if( type == LOCAL_TO_GLOBAL )
     {
@@ -393,35 +400,40 @@ void AxpyInterface<T>::Attach( AxpyType type, DistMatrix<T>& Z )
     }
 
     const Int p = Z.Grid().Size();
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+#else
     sentEomTo_.resize( p, false );
     haveEomFrom_.resize( p, false );
-
-    sendingData_.resize( p );
+    eomSendRequests_.resize( p );
+#endif
+   
+    // request objects
     sendingRequest_.resize( p );
+    sendingData_.resize( p );
     sendingReply_.resize( p );
-
+    
+    // ready-to-send
+    requestSendRequests_.resize( p );
+    replySendRequests_.resize( p );
+    dataSendRequests_.resize( p );
+    
+    // data
     dataVectors_.resize( p );
     requestVectors_.resize( p );
     replyVectors_.resize( p );
-
-    dataSendRequests_.resize( p );
-    requestSendRequests_.resize( p );
-    replySendRequests_.resize( p );
-
-    eomSendRequests_.resize( p );
 }
 
-template<typename T>
-void AxpyInterface<T>::Attach( AxpyType type, const DistMatrix<T>& X )
+template <typename T>
+void AxpyInterface <T>::Attach( AxpyType type,
+                                const DistMatrix <T>& X )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::Attach"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::Attach" ) )
+
     if( attachedForLocalToGlobal_ || attachedForGlobalToLocal_ )
-        LogicError("Must detach before reattaching.");
+        LogicError( "Must detach before reattaching." );
 
     if( type == LOCAL_TO_GLOBAL )
-    {
-        LogicError("Cannot update a constant matrix");
-    }
+        LogicError( "Cannot update a constant matrix" );
     else
     {
         attachedForGlobalToLocal_ = true;
@@ -429,59 +441,70 @@ void AxpyInterface<T>::Attach( AxpyType type, const DistMatrix<T>& X )
     }
 
     const Int p = X.Grid().Size();
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+#else
+    // eom
     sentEomTo_.resize( p, false );
     haveEomFrom_.resize( p, false );
-
-    sendingData_.resize( p );
+    eomSendRequests_.resize( p );
+#endif
+   
+    // ready-to-send
     sendingRequest_.resize( p );
+    sendingData_.resize( p );
     sendingReply_.resize( p );
-
-    dataVectors_.resize( p );
-    requestVectors_.resize( p );
-    replyVectors_.resize( p );
-
-    dataSendRequests_.resize( p );
+    
+    // ready-to-send
     requestSendRequests_.resize( p );
     replySendRequests_.resize( p );
-
-    eomSendRequests_.resize( p );
+    dataSendRequests_.resize( p );
+    
+    // data
+    dataVectors_.resize( p );
+    replyVectors_.resize( p );
+    requestVectors_.resize( p );
 }
 
-template<typename T>
-void AxpyInterface<T>::Axpy( T alpha, Matrix<T>& Z, Int i, Int j )
+template <typename T>
+void AxpyInterface <T>::Axpy( T alpha, Matrix <T>& Z, Int i, Int j )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::Axpy"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::Axpy" ) )
+
     if( attachedForLocalToGlobal_ )
         AxpyLocalToGlobal( alpha, Z, i, j );
     else if( attachedForGlobalToLocal_ )
         AxpyGlobalToLocal( alpha, Z, i, j );
     else
-        LogicError("Cannot axpy before attaching.");
+        LogicError( "Cannot axpy before attaching." );
 }
 
-template<typename T>
-void AxpyInterface<T>::Axpy( T alpha, const Matrix<T>& Z, Int i, Int j )
+template <typename T>
+void AxpyInterface <T>::Axpy( T alpha, const Matrix <T>& Z, Int i,
+                              Int j )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::Axpy"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::Axpy" ) )
+
     if( attachedForLocalToGlobal_ )
         AxpyLocalToGlobal( alpha, Z, i, j );
     else if( attachedForGlobalToLocal_ )
-        LogicError("Cannot update a constant matrix.");
+        LogicError( "Cannot update a constant matrix." );
     else
-        LogicError("Cannot axpy before attaching.");
+        LogicError( "Cannot axpy before attaching." );
 }
 
 // Update Y(i:i+height-1,j:j+width-1) += alpha X, where X is height x width
-template<typename T>
-void AxpyInterface<T>::AxpyLocalToGlobal
-( T alpha, const Matrix<T>& X, Int i, Int j )
+template <typename T>
+void AxpyInterface <T>::AxpyLocalToGlobal
+( T alpha, const Matrix <T>& X, Int i, Int j )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::AxpyLocalToGlobal"))
-    DistMatrix<T>& Y = *localToGlobalMat_;
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::AxpyLocalToGlobal" ) )
+    DistMatrix <T>& Y = *localToGlobalMat_;
+
     if( i < 0 || j < 0 )
-        LogicError("Submatrix offsets must be non-negative");
-    if( i+X.Height() > Y.Height() || j+X.Width() > Y.Width() )
-        LogicError("Submatrix out of bounds of global matrix");
+        LogicError( "Submatrix offsets must be non-negative" );
+
+    if( i + X.Height() > Y.Height() || j + X.Width() > Y.Width() )
+        LogicError( "Submatrix out of bounds of global matrix" );
 
     const Grid& g = Y.Grid();
     const Int r = g.Height();
@@ -489,80 +512,89 @@ void AxpyInterface<T>::AxpyLocalToGlobal
     const Int p = g.Size();
     const Int myProcessRow = g.Row();
     const Int myProcessCol = g.Col();
-    const Int colAlign = (Y.ColAlign() + i) % r;
-    const Int rowAlign = (Y.RowAlign() + j) % c;
-
+    const Int colAlign = ( Y.ColAlign() + i ) % r;
+    const Int rowAlign = ( Y.RowAlign() + j ) % c;
     const Int height = X.Height();
     const Int width = X.Width();
-
     Int receivingRow = myProcessRow;
     Int receivingCol = myProcessCol;
-    for( Int step=0; step<p; ++step )
+
+    for( Int step = 0; step < p; ++step )
     {
         const Int colShift = Shift( receivingRow, colAlign, r );
         const Int rowShift = Shift( receivingCol, rowAlign, c );
         const Int localHeight = Length( height, colShift, r );
         const Int localWidth = Length( width, rowShift, c );
-        const Int numEntries = localHeight*localWidth;
+        const Int numEntries = localHeight * localWidth;
 
         if( numEntries != 0 )
         {
-            const Int destination = receivingRow + r*receivingCol;
-            const Int bufferSize = 4*sizeof(Int) + (numEntries+1)*sizeof(T);
+            const Int destination = receivingRow + r * receivingCol;
+            const Int bufferSize =
+                4 * sizeof( Int ) + ( numEntries + 1 ) * sizeof( T );
+            const Int index =
+                ReadyForSend( bufferSize, dataVectors_[destination],
+                              dataSendRequests_[destination],
+                              sendingData_[destination] );
 
-            const Int index = 
-                ReadyForSend
-                ( bufferSize, dataVectors_[destination], 
-                  dataSendRequests_[destination], sendingData_[destination] );
-            DEBUG_ONLY(
-                if( Int(dataVectors_[destination][index].size()) != bufferSize )
-                    LogicError("Error in ReadyForSend");
-            )
-
-            // Pack the header
+            DEBUG_ONLY( if
+                        ( Int( dataVectors_[destination][index].size() ) !=
+                          bufferSize ) LogicError( "Error in ReadyForSend" ); )
+                
+	    // Pack the header
             byte* sendBuffer = dataVectors_[destination][index].data();
-            byte* head = sendBuffer;
-            *reinterpret_cast<Int*>(head) = i; head += sizeof(Int);
-            *reinterpret_cast<Int*>(head) = j; head += sizeof(Int);
-            *reinterpret_cast<Int*>(head) = height; head += sizeof(Int);
-            *reinterpret_cast<Int*>(head) = width; head += sizeof(Int);
-            *reinterpret_cast<T*>(head) = alpha; head += sizeof(T);
 
-            // Pack the payload
-            T* sendData = reinterpret_cast<T*>(head);
+            byte* head = sendBuffer;
+            *reinterpret_cast <Int*>( head ) = i;
+            head += sizeof( Int );
+            *reinterpret_cast <Int*>( head ) = j;
+            head += sizeof( Int );
+            *reinterpret_cast <Int*>( head ) = height;
+            head += sizeof( Int );
+            *reinterpret_cast <Int*>( head ) = width;
+            head += sizeof( Int );
+            *reinterpret_cast <T*>( head ) = alpha;
+            head += sizeof( T );
+           
+	    // Pack the payload
+	    T* sendData = reinterpret_cast <T*>( head );
             const T* XBuffer = X.LockedBuffer();
             const Int XLDim = X.LDim();
-            for( Int t=0; t<localWidth; ++t )
+
+            for( Int t = 0; t < localWidth; ++t )
             {
-                T* thisSendCol = &sendData[t*localHeight];
-                const T* thisXCol = &XBuffer[(rowShift+t*c)*XLDim];
-                for( Int s=0; s<localHeight; ++s )
-                    thisSendCol[s] = thisXCol[colShift+s*r];
+                T* thisSendCol = &sendData[t * localHeight];
+                const T* thisXCol = &XBuffer[( rowShift + t * c ) * XLDim];
+
+                for( Int s = 0; s < localHeight; ++s )
+                    thisSendCol[s] = thisXCol[colShift + s * r];
             }
 
             // Fire off the non-blocking send
             mpi::TaggedISSend
-            ( sendBuffer, bufferSize, destination, DATA_TAG, g.VCComm(), 
+            ( sendBuffer, bufferSize, destination, DATA_TAG, g.VCComm(),
               dataSendRequests_[destination][index] );
         }
 
-        receivingRow = (receivingRow + 1) % r;
+        receivingRow = ( receivingRow + 1 ) % r;
+
         if( receivingRow == 0 )
-            receivingCol = (receivingCol + 1) % c;
+            receivingCol = ( receivingCol + 1 ) % c;
     }
 }
 
 // Update Y += alpha X(i:i+height-1,j:j+width-1), where X is the dist-matrix
-template<typename T>
-void AxpyInterface<T>::AxpyGlobalToLocal( T alpha, Matrix<T>& Y, Int i, Int j )
+template <typename T>
+void AxpyInterface <T>::AxpyGlobalToLocal( T alpha, Matrix <T>& Y,
+        Int i, Int j )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::AxpyGlobalToLocal"))
-    const DistMatrix<T>& X = *globalToLocalMat_;
-
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::AxpyGlobalToLocal" ) )
+    const DistMatrix <T>& X = *globalToLocalMat_;
     const Int height = Y.Height();
     const Int width = Y.Width();
-    if( i+height > X.Height() || j+width > X.Width() )
-        LogicError("Invalid AxpyGlobalToLocal submatrix");
+
+    if( i + height > X.Height() || j + width > X.Width() )
+        LogicError( "Invalid AxpyGlobalToLocal submatrix" );
 
     const Grid& g = X.Grid();
     const Int r = g.Height();
@@ -570,71 +602,75 @@ void AxpyInterface<T>::AxpyGlobalToLocal( T alpha, Matrix<T>& Y, Int i, Int j )
     const Int p = g.Size();
 
     // Send out the requests to all processes in the grid
-    for( Int rank=0; rank<p; ++rank )
+    for( Int rank = 0; rank < p; ++rank )
     {
-        const Int bufferSize = 4*sizeof(Int);
-        const Int index = 
-            ReadyForSend
-            ( bufferSize, requestVectors_[rank], 
-              requestSendRequests_[rank], sendingRequest_[rank] );
-
+        const Int bufferSize = 4 * sizeof( Int );
+        const Int index = ReadyForSend( bufferSize, requestVectors_[rank],
+                                        requestSendRequests_[rank],
+                                        sendingRequest_[rank] );
         // Copy the request header into the send buffer
         byte* sendBuffer = requestVectors_[rank][index].data();
         byte* head = sendBuffer;
-        *reinterpret_cast<Int*>(head) = i; head += sizeof(Int);
-        *reinterpret_cast<Int*>(head) = j; head += sizeof(Int);
-        *reinterpret_cast<Int*>(head) = height; head += sizeof(Int);
-        *reinterpret_cast<Int*>(head) = width; head += sizeof(Int);
+        *reinterpret_cast <Int*>( head ) = i;
+        head += sizeof( Int );
+        *reinterpret_cast <Int*>( head ) = j;
+        head += sizeof( Int );
+        *reinterpret_cast <Int*>( head ) = height;
+        head += sizeof( Int );
+        *reinterpret_cast <Int*>( head ) = width;
+        head += sizeof( Int );
 
         // Begin the non-blocking send
         mpi::TaggedISSend
-        ( sendBuffer, bufferSize, rank, DATA_REQUEST_TAG, g.VCComm(), 
+        ( sendBuffer, bufferSize, rank, DATA_REQUEST_TAG, g.VCComm(),
           requestSendRequests_[rank][index] );
     }
 
     // Receive all of the replies
     Int numReplies = 0;
+    
     while( numReplies < p )
     {
         HandleGlobalToLocalRequest();
-
         mpi::Status status;
-        if( mpi::IProbe( mpi::ANY_SOURCE, DATA_REPLY_TAG, g.VCComm(), status ) )
+
+        if( mpi::IProbe
+            ( mpi::ANY_SOURCE, DATA_REPLY_TAG, g.VCComm(), status ) )
         {
             const Int source = status.MPI_SOURCE;
-
             // Ensure that we have a recv buffer
-            const Int count = mpi::GetCount<byte>( status );
+            const Int count = mpi::GetCount <byte> ( status );
             recvVector_.resize( count );
             byte* recvBuffer = recvVector_.data();
-
-            // Receive the data
+            
+	    // Receive the data
             mpi::TaggedRecv
             ( recvBuffer, count, source, DATA_REPLY_TAG, g.VCComm() );
-
-            // Unpack the reply header
+    
+	    // Unpack the reply header
             const byte* head = recvBuffer;
-            const Int row = *reinterpret_cast<const Int*>(head); 
-            head += sizeof(Int);
-            const Int col = *reinterpret_cast<const Int*>(head); 
-            head += sizeof(Int);
-            const T* recvData = reinterpret_cast<const T*>(head);
-
-            // Compute the local heights and offsets
-            const Int colAlign = (X.ColAlign()+i) % r;
-            const Int rowAlign = (X.RowAlign()+j) % c;
+            const Int row = *reinterpret_cast <const Int*>( head );
+            head += sizeof( Int );
+            const Int col = *reinterpret_cast <const Int*>( head );
+            head += sizeof( Int );
+            const T* recvData = reinterpret_cast <const T*>( head );
+            
+	    // Compute the local heights and offsets
+            const Int colAlign = ( X.ColAlign() + i ) % r;
+            const Int rowAlign = ( X.RowAlign() + j ) % c;
             const Int colShift = Shift( row, colAlign, r );
             const Int rowShift = Shift( col, rowAlign, c );
             const Int localHeight = Length( height, colShift, r );
             const Int localWidth = Length( width, rowShift, c );
 
             // Unpack the local matrix
-            for( Int t=0; t<localWidth; ++t )
+            for( Int t = 0; t < localWidth; ++t )
             {
-                T* YCol = Y.Buffer(0,rowShift+t*c);
-                const T* XCol = &recvData[t*localHeight];
-                for( Int s=0; s<localHeight; ++s )
-                    YCol[colShift+s*r] += alpha*XCol[s];
+                T* YCol = Y.Buffer( 0, rowShift + t * c );
+                const T* XCol = &recvData[t * localHeight];
+
+                for( Int s = 0; s < localHeight; ++s )
+                    YCol[colShift + s * r] += alpha * XCol[s];
             }
 
             ++numReplies;
@@ -642,102 +678,179 @@ void AxpyInterface<T>::AxpyGlobalToLocal( T alpha, Matrix<T>& Y, Int i, Int j )
     }
 }
 
-template<typename T>
-Int AxpyInterface<T>::ReadyForSend
+template <typename T>
+Int AxpyInterface <T>::ReadyForSend
 ( Int sendSize,
-  deque<vector<byte>>& sendVectors,
-  deque<mpi::Request>& requests, 
-  deque<bool>& requestStatuses )
+  std::deque <std::vector <byte>>& sendVectors,
+  std::deque <mpi::Request>& requests,
+  std::deque <bool>& requestStatuses )
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::ReadyForSend"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::ReadyForSend" ) )
     const Int numCreated = sendVectors.size();
-    DEBUG_ONLY(
-        if( numCreated != Int(requests.size()) || 
-            numCreated != Int(requestStatuses.size()) )
-            LogicError("size mismatch");
-    )
-    for( Int i=0; i<numCreated; ++i )
+
+    DEBUG_ONLY( if( numCreated != Int( requests.size() ) ||
+                    numCreated != Int( requestStatuses.size() ) )
+                LogicError( "size mismatch" ); )
+    
+    for( Int i = 0; i < numCreated; ++i )
     {
-        // If this request is still running, test to see if it finished.
-        if( requestStatuses[i] )
-        {
-            const bool finished = mpi::Test( requests[i] );
-            requestStatuses[i] = !finished;
+	// If this request is still running, test to see if it finished.
+	if( requestStatuses[i] )
+	{
+	    const bool finished = mpi::Test( requests[i] );
+	    requestStatuses[i] = !finished;
         }
 
-        if( !requestStatuses[i] )    
+        if( !requestStatuses[i] )
         {
-            requestStatuses[i] = true;
+	    requestStatuses[i] = true;
             sendVectors[i].resize( sendSize );
             return i;
         }
     }
 
-    sendVectors.resize( numCreated+1 );
+    sendVectors.resize( numCreated + 1 );
     sendVectors[numCreated].resize( sendSize );
     requests.push_back( mpi::REQUEST_NULL );
     requestStatuses.push_back( true );
-
     return numCreated;
 }
 
-template<typename T>
-void AxpyInterface<T>::UpdateRequestStatuses()
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+template <typename T> bool AxpyInterface <T>::ReturnRequestStatuses()
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::UpdateRequestStatuses"))
-    const Grid& g = ( attachedForLocalToGlobal_ ? 
-                      localToGlobalMat_->Grid() : 
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::ReturnRequestStatuses" ) )
+    const Grid& g = ( attachedForLocalToGlobal_ ?
+                      localToGlobalMat_->Grid() :
                       globalToLocalMat_->Grid() );
     const Int p = g.Size();
 
-    for( Int i=0; i<p; ++i )
+    for( Int i = 0; i < p; ++i )
     {
         const Int numDataSendRequests = dataSendRequests_[i].size();
-        for( Int j=0; j<numDataSendRequests; ++j )
+
+        for( Int j = 0; j < numDataSendRequests; ++j )
+        {
             if( sendingData_[i][j] )
-                sendingData_[i][j] = 
-                    !mpi::Test( dataSendRequests_[i][j] );
+                sendingData_[i][j] = !mpi::Test( dataSendRequests_[i][j] );
+
+            if( sendingData_[i][j] )
+                return false;
+        }
+
         const Int numRequestSendRequests = requestSendRequests_[i].size();
-        for( Int j=0; j<numRequestSendRequests; ++j )
+
+        for( Int j = 0; j < numRequestSendRequests; ++j )
+        {
             if( sendingRequest_[i][j] )
-                sendingRequest_[i][j] = 
-                    !mpi::Test( requestSendRequests_[i][j] );
+                sendingRequest_[i][j] = !mpi::Test( requestSendRequests_[i][j] );
+
+            if( sendingRequest_[i][j] )
+                return false;
+        }
+
         const Int numReplySendRequests = replySendRequests_[i].size();
-        for( Int j=0; j<numReplySendRequests; ++j )
+
+        for( Int j = 0; j < numReplySendRequests; ++j )
+        {
             if( sendingReply_[i][j] )
-                sendingReply_[i][j] = 
-                    !mpi::Test( replySendRequests_[i][j] );
+                sendingReply_[i][j] = !mpi::Test( replySendRequests_[i][j] );
+
+            if( sendingReply_[i][j] )
+                return false;
+        }
+    }
+
+    return true;
+}
+#else
+template <typename T> void AxpyInterface <T>::UpdateRequestStatuses()
+{
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::UpdateRequestStatuses" ) )
+    const Grid& g = ( attachedForLocalToGlobal_ ?
+                      localToGlobalMat_->Grid() :
+                      globalToLocalMat_->Grid() );
+    const Int p = g.Size();
+
+    for( Int i = 0; i < p; ++i )
+    {
+        const Int numDataSendRequests = dataSendRequests_[i].size();
+
+        for( Int j = 0; j < numDataSendRequests; ++j )
+            if( sendingData_[i][j] )
+                sendingData_[i][j] = !mpi::Test( dataSendRequests_[i][j] );
+
+        const Int numRequestSendRequests = requestSendRequests_[i].size();
+
+        for( Int j = 0; j < numRequestSendRequests; ++j )
+            if( sendingRequest_[i][j] )
+                sendingRequest_[i][j] = !mpi::Test( requestSendRequests_[i][j] );
+
+        const Int numReplySendRequests = replySendRequests_[i].size();
+
+        for( Int j = 0; j < numReplySendRequests; ++j )
+            if( sendingReply_[i][j] )
+                sendingReply_[i][j] = !mpi::Test( replySendRequests_[i][j] );
     }
 }
+#endif //EL_USE_IBARRIER_FOR_AXPY
 
-template<typename T>
-void AxpyInterface<T>::Detach()
+template <typename T> void AxpyInterface <T>::Detach()
 {
-    DEBUG_ONLY(CallStackEntry cse("AxpyInterface::Detach"))
+    DEBUG_ONLY( CallStackEntry cse( "AxpyInterface::Detach" ) )
+
     if( !attachedForLocalToGlobal_ && !attachedForGlobalToLocal_ )
-        LogicError("Must attach before detaching.");
+        LogicError( "Must attach before detaching." );
 
-    const Grid& g = ( attachedForLocalToGlobal_ ? 
-                      localToGlobalMat_->Grid() : 
-                      globalToLocalMat_->Grid() );
+    const Grid& g = ( attachedForLocalToGlobal_ ?
+                      localToGlobalMat_->Grid() : globalToLocalMat_->
+                      Grid() );
+    // nonblocking consensus
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+    bool DONE = false;
+    mpi::Request nb_bar_request;
+    bool nb_bar_active = false;
 
+    while( !DONE )
+#else
     while( !Finished() )
+#endif
     {
         if( attachedForLocalToGlobal_ )
             HandleLocalToGlobalData();
         else
             HandleGlobalToLocalRequest();
+
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+
+        if( nb_bar_active )
+            DONE = mpi::Test( nb_bar_request );
+        else
+        {
+            if( ReturnRequestStatuses() )
+            {
+                // all ssends are complete, start nonblocking barrier
+                mpi::IBarrier( g.VCComm(), nb_bar_request );
+                nb_bar_active = true;
+            }
+        }
+#else
         HandleEoms();
+#endif
     }
 
     mpi::Barrier( g.VCComm() );
-
+    
     attachedForLocalToGlobal_ = false;
     attachedForGlobalToLocal_ = false;
-    recvVector_.clear();
+
+#if MPI_VERSION>=3 && defined(EL_USE_IBARRIER_FOR_AXPY)
+#else
     sentEomTo_.clear();
     haveEomFrom_.clear();
-
+    eomSendRequests_.clear();
+#endif
+    
     sendingData_.clear();
     sendingRequest_.clear();
     sendingReply_.clear();
@@ -745,12 +858,11 @@ void AxpyInterface<T>::Detach()
     dataVectors_.clear();
     requestVectors_.clear();
     replyVectors_.clear();
+    recvVector_.clear();
     
     dataSendRequests_.clear();
     requestSendRequests_.clear();
     replySendRequests_.clear();
-
-    eomSendRequests_.clear();
 }
 
 #define PROTO(T) template class AxpyInterface<T>;
