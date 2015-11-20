@@ -658,6 +658,14 @@ struct QRCtrl
     Real tol=0;
 
     bool alwaysRecomputeNorms=false;
+
+    // Selecting for the smallest norm first is an important preprocessing
+    // step for LLL suggested by Wubben et al.
+    //
+    // Ideally a black-box reduction operation could be provided by the user
+    // instead, as it is often the case that one may desire a custom pivoting
+    // rule.
+    bool smallestFirst=false;
 };
 
 // Return an implicit representation of Q and R such that A = Q R
@@ -672,6 +680,13 @@ void QR
 ( ElementalMatrix<F>& A,
   ElementalMatrix<F>& t, 
   ElementalMatrix<Base<F>>& d );
+// NOTE: This is a ScaLAPACK wrapper, and ScaLAPACK uses a different convention
+//       for Householder transformations (that includes identity matrices,
+//       which are not representable as Householder transformations)
+template<typename F>
+void QR
+( DistMatrix<F,MC,MR,BLOCK>& A,
+  DistMatrix<F,MR,STAR,BLOCK>& t );
 
 // Return an implicit representation of (Q,R,P) such that A P ~= Q R
 // -----------------------------------------------------------------

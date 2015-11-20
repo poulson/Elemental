@@ -13,15 +13,15 @@ namespace El {
 // TODO: Add options for FastAbs instead of Abs
 
 template<typename F>
-ValueInt<Base<F>> VectorMinAbs( const Matrix<F>& x )
+ValueInt<Base<F>> VectorMinAbsLoc( const Matrix<F>& x )
 {
-    DEBUG_ONLY(CSE cse("VectorMinAbs"))
+    DEBUG_ONLY(CSE cse("VectorMinAbsLoc"))
     typedef Base<F> Real;
     const Int m = x.Height();
     const Int n = x.Width();
     DEBUG_ONLY(
-        if( m != 1 && n != 1 )
-            LogicError("Input should have been a vector");
+      if( m != 1 && n != 1 )
+          LogicError("Input should have been a vector");
     )
     ValueInt<Real> pivot;
     if( Min(m,n) == 0 )
@@ -61,9 +61,9 @@ ValueInt<Base<F>> VectorMinAbs( const Matrix<F>& x )
 }
 
 template<typename F>
-ValueInt<Base<F>> VectorMinAbs( const AbstractDistMatrix<F>& x )
+ValueInt<Base<F>> VectorMinAbsLoc( const AbstractDistMatrix<F>& x )
 {
-    DEBUG_ONLY(CSE cse("VectorMinAbs"))
+    DEBUG_ONLY(CSE cse("VectorMinAbsLoc"))
     typedef Base<F> Real;
     const Int m = x.Height();
     const Int n = x.Width();
@@ -126,9 +126,9 @@ ValueInt<Base<F>> VectorMinAbs( const AbstractDistMatrix<F>& x )
 }
 
 template<typename F>
-Entry<Base<F>> MinAbs( const Matrix<F>& A )
+Entry<Base<F>> MinAbsLoc( const Matrix<F>& A )
 {
-    DEBUG_ONLY(CSE cse("MinAbs"))
+    DEBUG_ONLY(CSE cse("MinAbsLoc"))
     typedef Base<F> Real;
     const Int m = A.Height();
     const Int n = A.Width();
@@ -162,7 +162,7 @@ Entry<Base<F>> MinAbs( const Matrix<F>& A )
 }
 
 template<typename F>
-Entry<Base<F>> MinAbs( const AbstractDistMatrix<F>& A )
+Entry<Base<F>> MinAbsLoc( const AbstractDistMatrix<F>& A )
 {
     DEBUG_ONLY(
       CSE cse("MinAbs");
@@ -213,7 +213,7 @@ Entry<Base<F>> MinAbs( const AbstractDistMatrix<F>& A )
 }
 
 template<typename F>
-Entry<Base<F>> SymmetricMinAbs( UpperOrLower uplo, const Matrix<F>& A )
+Entry<Base<F>> SymmetricMinAbsLoc( UpperOrLower uplo, const Matrix<F>& A )
 {
     DEBUG_ONLY(
       CSE cse("SymmetricMinAbs");
@@ -271,7 +271,7 @@ Entry<Base<F>> SymmetricMinAbs( UpperOrLower uplo, const Matrix<F>& A )
 
 template<typename F>
 Entry<Base<F>>
-SymmetricMinAbs( UpperOrLower uplo, const AbstractDistMatrix<F>& A )
+SymmetricMinAbsLoc( UpperOrLower uplo, const AbstractDistMatrix<F>& A )
 {
     DEBUG_ONLY(
       CSE cse("SymmetricMinAbs");
@@ -347,13 +347,14 @@ SymmetricMinAbs( UpperOrLower uplo, const AbstractDistMatrix<F>& A )
 }
 
 #define PROTO(F) \
-  template ValueInt<Base<F>> VectorMinAbs( const Matrix<F>& x ); \
-  template ValueInt<Base<F>> VectorMinAbs( const AbstractDistMatrix<F>& x ); \
-  template Entry<Base<F>> MinAbs( const Matrix<F>& x ); \
-  template Entry<Base<F>> MinAbs( const AbstractDistMatrix<F>& x ); \
-  template Entry<Base<F>> SymmetricMinAbs \
+  template ValueInt<Base<F>> VectorMinAbsLoc( const Matrix<F>& x ); \
+  template ValueInt<Base<F>> VectorMinAbsLoc \
+  ( const AbstractDistMatrix<F>& x ); \
+  template Entry<Base<F>> MinAbsLoc( const Matrix<F>& x ); \
+  template Entry<Base<F>> MinAbsLoc( const AbstractDistMatrix<F>& x ); \
+  template Entry<Base<F>> SymmetricMinAbsLoc \
   ( UpperOrLower uplo, const Matrix<F>& A ); \
-  template Entry<Base<F>> SymmetricMinAbs \
+  template Entry<Base<F>> SymmetricMinAbsLoc \
   ( UpperOrLower uplo, const AbstractDistMatrix<F>& A );
 
 #define EL_ENABLE_QUAD

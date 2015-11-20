@@ -7,7 +7,6 @@
    http://opensource.org/licenses/BSD-2-Clause
 */
 #include "El.hpp"
-using namespace std;
 using namespace El;
 
 template<typename F> 
@@ -32,23 +31,16 @@ void TestTrsv
         Print( y, "y" );
     }
     if( g.Rank() == 0 )
-    {
-        cout << "  Starting Trsv...";
-        cout.flush();
-    }
+        Output("  Starting Trsv");
     mpi::Barrier( g.Comm() );
     const double startTime = mpi::Time();
     Trsv( uplo, orientation, diag, A, y );
     mpi::Barrier( g.Comm() );
     const double runTime = mpi::Time() - startTime;
     const double realGFlops = Pow(double(n),2.)/(1.e9*runTime);
-    const double gFlops = ( IsComplex<F>::val ? 4*realGFlops : realGFlops );
+    const double gFlops = ( IsComplex<F>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "DONE. " << endl
-             << "  Time = " << runTime << " seconds. GFlops = " 
-             << gFlops << endl;
-    }
+        Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s)");
     if( print )
         Print( y, "y after solve" );
 
@@ -57,17 +49,16 @@ void TestTrsv
     const Real yNorm = FrobeniusNorm( y );
     if( g.Rank() == 0 )
     {
-        std::cout << "|| x - y ||_2 = " << yNorm << "\n"
-                  << "|| x ||_2     = " << xNorm << "\n"
-                  << "|| x - y ||_2 / || x ||_2 = " << yNorm/xNorm << "\n"
-                  << std::endl;
+        Output("  ||   x   ||_2 = ",xNorm);
+        Output("  || x - y ||_2 = ",yNorm);
+        Output("  || x - y ||_2 / || x ||_2 = ",yNorm/xNorm);
     }
 }
 
 int 
 main( int argc, char* argv[] )
 {
-    Initialize( argc, argv );
+    Environment env( argc, argv );
     mpi::Comm comm = mpi::COMM_WORLD;
     const Int commRank = mpi::Rank( comm );
     const Int commSize = mpi::Size( comm );
@@ -98,19 +89,17 @@ main( int argc, char* argv[] )
 
         ComplainIfDebug();
         if( commRank == 0 )
-            cout << "Will test Trsv" << uploChar << transChar << diagChar 
-                 << endl;
+            Output("Will test Trsv ",uploChar,transChar,diagChar);
 
         if( commRank == 0 )
-            cout << "Testing with doubles:" << endl;
+            Output("Testing with doubles");
         TestTrsv<double>( print, uplo, orientation, diag, n, g );
 
         if( commRank == 0 )
-            cout << "Testing with double-precision complex:" << endl;
+            Output("Testing with Complex<double>");
         TestTrsv<Complex<double>>( print, uplo, orientation, diag, n, g );
     }
     catch( exception& e ) { ReportException(e); }
 
-    Finalize();
     return 0;
 }

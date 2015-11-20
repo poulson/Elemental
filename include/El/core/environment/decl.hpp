@@ -15,7 +15,6 @@ namespace El {
 using std::size_t;
 
 using std::array;
-using std::complex;
 using std::deque;
 using std::function;
 using std::pair;
@@ -47,11 +46,20 @@ void PrintCxxCompilerInfo( ostream& os=cout );
 bool Using64BitInt();
 bool Using64BitBlasInt();
 
-// For initializing and finalizing Elemental
+// For manually initializing and finalizing Elemental
 void Initialize();
 void Initialize( int& argc, char**& argv );
 void Finalize();
 bool Initialized();
+
+// For initializing/finalizing Elemental using RAII
+class Environment
+{
+public:
+    Environment() { Initialize(); }
+    Environment( int& argc, char**& argv ) { Initialize( argc, argv ); }
+    ~Environment() { Finalize(); }
+};
 
 // For getting the MPI argument instance (for internal usage)
 class Args : public choice::MpiArgs
@@ -92,14 +100,14 @@ void SetDefaultBlockWidth( Int blockWidth );
 
 std::mt19937& Generator();
 
-template<typename T>
+template<typename T,typename=EnableIf<IsScalar<T>>>
 inline const T& Max( const T& m, const T& n ) EL_NO_EXCEPT
 { return std::max(m,n); }
 
 inline const Int& Max( const Int& m, const Int& n ) EL_NO_EXCEPT
 { return std::max(m,n); }
 
-template<typename T>
+template<typename T,typename=EnableIf<IsScalar<T>>>
 inline const T& Min( const T& m, const T& n ) EL_NO_EXCEPT
 { return std::min(m,n); }
 
@@ -160,6 +168,14 @@ inline void BuildStream( ostringstream& os, T item, Args... args )
 {
     os << item;
     BuildStream( os, args... );
+}
+
+template<typename... Args>
+inline string BuildString( Args... args )
+{ 
+    ostringstream os;
+    BuildStream( os, args... );
+    return os.str(); 
 }
 
 class UnrecoverableException : public std::runtime_error
@@ -244,6 +260,9 @@ public:
 };
 
 DEBUG_ONLY(
+    void EnableTracing();
+    void DisableTracing();
+
     void PushCallStack( string s );
     void PopCallStack();
     void DumpCallStack( ostream& os=cerr );
@@ -264,6 +283,20 @@ DEBUG_ONLY(
     };
     typedef CallStackEntry CSE;
 )
+
+void OpenLog( const char* filename );
+
+std::ostream & LogOS();
+
+template<typename... Args>
+inline void Log( Args... args )
+{
+    std::ostringstream str;
+    BuildStream( str, args... );
+    LogOS() << str.str() << std::endl;
+}
+
+void CloseLog();
 
 void ReportException( const exception& e, ostream& os=cerr );
 
@@ -317,10 +350,6 @@ vector<Int> RelativeIndices( const vector<Int>& sub, const vector<Int>& full );
 
 // Insists that the index can be found
 Int Find( const vector<Int>& sortedInds, Int index );
-
-template<typename F>
-void UpdateScaledSquare
-( F alpha, Base<F>& scale, Base<F>& scaledSquare ) EL_NO_EXCEPT;
 
 } // namespace El
 

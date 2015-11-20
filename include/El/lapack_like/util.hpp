@@ -72,24 +72,24 @@ void BuildChildFromPerm
 
 // Median
 // ======
-template<typename Real>
+template<typename Real,typename=EnableIf<IsReal<Real>>>
 ValueInt<Real> Median( const Matrix<Real>& x );
-template<typename Real>
+template<typename Real,typename=EnableIf<IsReal<Real>>>
 ValueInt<Real> Median( const ElementalMatrix<Real>& x );
 
 // Sort
 // ====
-template<typename Real>
+template<typename Real,typename=EnableIf<IsReal<Real>>>
 void Sort( Matrix<Real>& X, SortType sort=ASCENDING );
-template<typename Real>
+template<typename Real,typename=EnableIf<IsReal<Real>>>
 void Sort( ElementalMatrix<Real>& X, SortType sort=ASCENDING );
 
-template<typename Real>
-vector<ValueInt<Real>> TaggedSort
-( const Matrix<Real>& x, SortType sort=ASCENDING );
-template<typename Real>
-vector<ValueInt<Real>> TaggedSort
-( const ElementalMatrix<Real>& x, SortType sort=ASCENDING );
+template<typename Real,typename=EnableIf<IsReal<Real>>>
+vector<ValueInt<Real>>
+TaggedSort( const Matrix<Real>& x, SortType sort=ASCENDING );
+template<typename Real,typename=EnableIf<IsReal<Real>>>
+vector<ValueInt<Real>>
+TaggedSort( const ElementalMatrix<Real>& x, SortType sort=ASCENDING );
 
 } // namespace El
 

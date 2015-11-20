@@ -1,7 +1,6 @@
 # The simplest example of solving an SOCP with Elemental.
 # Contributed by Steven Diamond.
 import El
-El.Initialize()
 orders = El.DistMultiVec(El.iTag)
 orders.Resize(1, 1)
 orders.Set(0, 0, 1)
@@ -27,7 +26,7 @@ A.ProcessQueues()
 G = El.DistSparseMatrix()
 G.Resize(1, 1)
 G.Reserve(1)
-G.QueueUpdate(0, 0, 1.)
+G.QueueUpdate(0, 0, 1., passive=True)
 G.ProcessLocalQueues()
 
 x = El.DistMultiVec()

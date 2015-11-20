@@ -10,18 +10,80 @@
 #ifndef EL_ELEMENT_DECL_HPP
 #define EL_ELEMENT_DECL_HPP
 
+// For std::enable_if
+#include <type_traits>
+
 #ifdef EL_HAVE_QUADMATH
 #include <quadmath.h>
 #endif
 
 namespace El {
 
-#if defined(EL_HAVE_QUADMATH)
+using std::enable_if;
+
+typedef unsigned char byte;
+
+// If these are changes, you must make sure that they have 
+// existing MPI datatypes. This is only sometimes true for 'long long'
+#ifdef EL_USE_64BIT_INTS
+typedef long long int Int;
+typedef long long unsigned Unsigned;
+#else
+typedef int Int;
+typedef unsigned Unsigned;
+#endif
+
+#ifdef EL_HAVE_QUAD
 typedef __float128 Quad;
 #endif
 
 template<typename Real>
 using Complex = std::complex<Real>;
+typedef Complex<float>  scomplex;
+typedef Complex<double> dcomplex;
+#ifdef EL_HAVE_QUAD
+typedef Complex<Quad> qcomplex;
+#endif
+
+// For usage in EnableIf
+// =====================
+
+// Types that Matrix, DistMatrix, etc. are instantiatable with
+// -----------------------------------------------------------
+template<typename T> struct IsScalar { static const bool value=false; };
+template<> struct IsScalar<Int> { static const bool value=true; };
+template<> struct IsScalar<float> { static const bool value=true; };
+template<> struct IsScalar<double> { static const bool value=true; };
+template<> struct IsScalar<Complex<float>> { static const bool value=true; };
+template<> struct IsScalar<Complex<double>> { static const bool value=true; };
+#ifdef EL_HAVE_QUAD
+template<> struct IsScalar<Quad> { static const bool value=true; };
+template<> struct IsScalar<Complex<Quad>> { static const bool value=true; };
+#endif
+
+// A superset of the above that includes pointers to the above, as well
+// as 'int' (which is different than Int if 64-bit integers are enabled)
+// ---------------------------------------------------------------------
+template<typename T> struct IsData { static const bool value=false; };
+template<typename T> struct IsData<T*> { static const bool value=true; };
+template<typename T> struct IsData<const T*> { static const bool value=true; };
+#ifdef EL_USE_64BIT_INTS
+template<> struct IsData<int> { static const bool value=true; };
+#endif
+template<> struct IsData<Int> { static const bool value=true; };
+template<> struct IsData<float> { static const bool value=true; };
+template<> struct IsData<double> { static const bool value=true; };
+template<> struct IsData<Complex<float>> { static const bool value=true; };
+template<> struct IsData<Complex<double>> { static const bool value=true; };
+#ifdef EL_HAVE_QUAD
+template<> struct IsData<Quad> { static const bool value=true; };
+template<> struct IsData<Complex<Quad>> { static const bool value=true; };
+#endif
+
+template<typename Condition,class T=void>
+using EnableIf = typename std::enable_if<Condition::value,T>::type;
+template<typename Condition,class T=void>
+using DisableIf = typename std::enable_if<!Condition::value,T>::type;
 
 // Basic element manipulation and I/O
 // ==================================
@@ -52,8 +114,15 @@ template<typename F> using Base = typename BaseHelper<F>::type;
 
 // For querying whether or not an element's type is complex
 // --------------------------------------------------------
-template<typename Real> struct IsComplex                { enum { val=0 }; };
-template<typename Real> struct IsComplex<Complex<Real>> { enum { val=1 }; };
+template<typename Real> struct IsReal
+{ static const bool value=true; };
+template<typename Real> struct IsReal<Complex<Real>>
+{ static const bool value=false; };
+
+template<typename Real> struct IsComplex
+{ static const bool value=false; };
+template<typename Real> struct IsComplex<Complex<Real>>
+{ static const bool value=true; };
 
 // Pretty-printing
 // ---------------
@@ -267,6 +336,67 @@ template<typename F> F Atanh( const F& alpha );
 template<> Quad Atanh( const Quad& alpha );
 template<> Complex<Quad> Atanh( const Complex<Quad>& alpha );
 #endif
+
+// Rounding
+// ========
+
+// Round to the nearest integer
+// ----------------------------
+template<typename T,typename=EnableIf<IsScalar<T>>>
+T Round( const T& alpha );
+
+// Partial specializations
+// ^^^^^^^^^^^^^^^^^^^^^^^
+template<typename T,typename=EnableIf<IsScalar<T>>>
+Complex<T> Round( const Complex<T>& alpha );
+
+// Full specializations
+// ^^^^^^^^^^^^^^^^^^^^
+Int Round( const Int& alpha );
+#ifdef EL_HAVE_QUAD
+Quad Round( const Quad& alpha );
+#endif
+
+// Ceiling
+// -------
+template<typename T,typename=EnableIf<IsScalar<T>>>
+T Ceil( const T& alpha );
+
+// Partial specializations
+// ^^^^^^^^^^^^^^^^^^^^^^^
+template<typename T,typename=EnableIf<IsScalar<T>>>
+Complex<T> Ceil( const Complex<T>& alpha );
+
+// Full specializations
+// ^^^^^^^^^^^^^^^^^^^^
+Int Ceil( const Int& alpha );
+#ifdef EL_HAVE_QUAD
+Quad Ceil( const Quad& alpha );
+#endif
+
+// Floor
+// -----
+template<typename T,typename=EnableIf<IsScalar<T>>>
+T Floor( const T& alpha );
+
+// Partial specializations
+// ^^^^^^^^^^^^^^^^^^^^^^^
+template<typename T,typename=EnableIf<IsScalar<T>>>
+Complex<T> Floor( const Complex<T>& alpha );
+
+// Full specializations
+// ^^^^^^^^^^^^^^^^^^^^
+Int Floor( const Int& alpha );
+#ifdef EL_HAVE_QUAD
+Quad Floor( const Quad& alpha );
+#endif
+
+// Two-norm formation
+// ==================
+// TODO: Move this somewhere more fitting
+template<typename F>
+void UpdateScaledSquare
+( F alpha, Base<F>& scale, Base<F>& scaledSquare ) EL_NO_EXCEPT;
 
 } // namespace El
 
