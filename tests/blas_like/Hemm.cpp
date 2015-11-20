@@ -7,7 +7,6 @@
    http://opensource.org/licenses/BSD-2-Clause
 */
 #include "El.hpp"
-using namespace std;
 using namespace El;
 
 template<typename T> 
@@ -31,10 +30,7 @@ void TestHemm
     }
 
     if( g.Rank() == 0 )
-    {
-        cout << "  Starting Parallel Hemm...";
-        cout.flush();
-    }
+        Output("  Starting Hemm...");
     mpi::Barrier( g.Comm() );
     const double startTime = mpi::Time();
     Hemm( side, uplo, alpha, A, B, beta, C );
@@ -43,29 +39,23 @@ void TestHemm
     const double mD = double(m);
     const double nD = double(n);
     const double realGFlops = 
-        ( side==LEFT ? 2.*mD*mD*nD : 2.*mD*nD*nD ) / (1.e9*runTime);
-    const double gFlops = ( IsComplex<T>::val ? 4*realGFlops : realGFlops );
+      ( side==LEFT ? 2.*mD*mD*nD : 2.*mD*nD*nD ) / (1.e9*runTime);
+    const double gFlops = ( IsComplex<T>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "DONE. " << endl
-             << "  Time = " << runTime << " seconds. GFlops = " 
-             << gFlops << endl;
-    }
+      Output("  Finished after ",runTime," seconds (",gFlops," GFlop/s)");
     if( print )
     {
-        ostringstream msg;
         if( side == LEFT )
-            msg << "C := " << alpha << " Herm(A) B + " << beta << " C";
+            Print( C, BuildString("C := ",alpha," Herm(A) B + ",beta," C") );
         else
-            msg << "C := " << alpha << " B Herm(A) + " << beta << " C";
-        Print( C, msg.str() );
+            Print( C, BuildString("C := ",alpha," B Herm(A) + ",beta," C") );
     }
 }
 
 int 
 main( int argc, char* argv[] )
 {
-    Initialize( argc, argv );
+    Environment env( argc, argv );
     mpi::Comm comm = mpi::COMM_WORLD;
     const Int commRank = mpi::Rank( comm );
     const Int commSize = mpi::Size( comm );
@@ -93,19 +83,18 @@ main( int argc, char* argv[] )
 
         ComplainIfDebug();
         if( commRank == 0 )
-            cout << "Will test Hemm" << sideChar << uploChar << endl;
+            Output("Will test Hemm ",sideChar,uploChar);
 
         if( commRank == 0 )
-            cout << "Testing with doubles:" << endl;
+            Output("Testing with doubles:");
         TestHemm<double>( print, side, uplo, m, n, 3., 4., g );
 
         if( commRank == 0 )
-            cout << "Testing with double-precision complex:" << endl;
+            Output("Testing with Complex<double>");
         TestHemm<Complex<double>>
         ( print, side, uplo, m, n, Complex<double>(3), Complex<double>(4), g );
     }
     catch( exception& e ) { ReportException(e); }
 
-    Finalize();
     return 0;
 }

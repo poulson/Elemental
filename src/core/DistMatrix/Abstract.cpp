@@ -45,9 +45,9 @@ AbstractDistMatrix<T>::~AbstractDistMatrix() { }
 // ==============================
 template<typename T>
 void
-AbstractDistMatrix<T>::Empty()
+AbstractDistMatrix<T>::Empty( bool freeMemory )
 {
-    matrix_.Empty_();
+    matrix_.Empty_( freeMemory );
     viewType_ = OWNER;
     height_ = 0;
     width_ = 0;
@@ -57,42 +57,19 @@ AbstractDistMatrix<T>::Empty()
     rowConstrained_ = false;
     rootConstrained_ = false;
     SetShifts();
+
+    SwapClear( remoteUpdates_ );
 }
 
 template<typename T>
 void
-AbstractDistMatrix<T>::SoftEmpty()
+AbstractDistMatrix<T>::EmptyData( bool freeMemory )
 {
-    matrix_.Resize_( 0, 0 );
+    matrix_.Empty_( freeMemory );
     viewType_ = OWNER;
     height_ = 0;
     width_ = 0;
-    colAlign_ = 0;
-    rowAlign_ = 0;
-    colConstrained_ = false;
-    rowConstrained_ = false;
-    rootConstrained_ = false;
-    SetShifts();
-}
-
-template<typename T>
-void
-AbstractDistMatrix<T>::EmptyData()
-{
-    matrix_.Empty_();
-    viewType_ = OWNER;
-    height_ = 0;
-    width_ = 0;
-}
-
-template<typename T>
-void
-AbstractDistMatrix<T>::SoftEmptyData()
-{
-    matrix_.Resize_( 0, 0 );
-    viewType_ = OWNER;
-    height_ = 0;
-    width_ = 0;
+    SwapClear( remoteUpdates_ );
 }
 
 template<typename T>
@@ -102,7 +79,7 @@ AbstractDistMatrix<T>::SetGrid( const El::Grid& grid )
     if( grid_ != &grid )
     {
         grid_ = &grid; 
-        SoftEmpty();
+        Empty(false);
     }
 }
 
@@ -158,11 +135,11 @@ AbstractDistMatrix<T>::SetRoot( int root, bool constrain )
 {
     DEBUG_ONLY(
       CSE cse("ADM::SetRoot");
-      if( root < 0 || root >= mpi::Size(CrossComm()) )
+      if( root < 0 || root >= CrossSize() )
           LogicError("Invalid root");
     )
     if( root != root_ )
-        SoftEmpty();
+        Empty(false);
     root_ = root;
     if( constrain )
         rootConstrained_ = true;
@@ -410,7 +387,7 @@ EL_NO_RELEASE_EXCEPT
           LogicError("Get should only be called in-grid");
     )
     Base<T> value;
-    if( IsComplex<T>::val )
+    if( IsComplex<T>::value )
     {
         if( CrossRank() == Root() )
         {
@@ -459,8 +436,7 @@ EL_NO_RELEASE_EXCEPT
 { SetRealPart( entry.i, entry.j, entry.value ); }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::SetImagPart( Int i, Int j, Base<T> value )
+void AbstractDistMatrix<T>::SetImagPart( Int i, Int j, Base<T> value )
 EL_NO_RELEASE_EXCEPT
 {
     DEBUG_ONLY(CSE cse("ADM::SetImagPart"))
@@ -469,8 +445,7 @@ EL_NO_RELEASE_EXCEPT
 }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::SetImagPart( const Entry<Base<T>>& entry )
+void AbstractDistMatrix<T>::SetImagPart( const Entry<Base<T>>& entry )
 EL_NO_RELEASE_EXCEPT
 { SetImagPart( entry.i, entry.j, entry.value ); }
 
@@ -507,8 +482,7 @@ EL_NO_RELEASE_EXCEPT
 { UpdateRealPart( entry.i, entry.j, entry.value ); }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::UpdateImagPart( Int i, Int j, Base<T> value )
+void AbstractDistMatrix<T>::UpdateImagPart( Int i, Int j, Base<T> value )
 EL_NO_RELEASE_EXCEPT
 {
     DEBUG_ONLY(CSE cse("ADM::UpdateImagPart"))
@@ -517,8 +491,7 @@ EL_NO_RELEASE_EXCEPT
 }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::UpdateImagPart( const Entry<Base<T>>& entry )
+void AbstractDistMatrix<T>::UpdateImagPart( const Entry<Base<T>>& entry )
 EL_NO_RELEASE_EXCEPT
 { UpdateImagPart( entry.i, entry.j, entry.value ); }
 
@@ -572,51 +545,97 @@ EL_NO_RELEASE_EXCEPT
 { QueueUpdate( Entry<T>{i,j,value} ); }
 
 template<typename T>
-void AbstractDistMatrix<T>::ProcessQueues()
+void AbstractDistMatrix<T>::ProcessQueues( bool includeViewers )
 {
     DEBUG_ONLY(CSE cse("AbstractDistMatrix::ProcessQueues"))
     const auto& g = Grid();
-    mpi::Comm comm = g.ViewingComm();
-    const int commSize = mpi::Size( comm );
-
-    // Compute the metadata
-    // ====================
-    vector<int> sendCounts(commSize,0);
-    for( const auto& entry : remoteUpdates_ )
+    if( includeViewers )
     {
-        const int owner = 
-          g.VCToViewing( 
-            g.CoordsToVC(ColDist(),RowDist(),Owner(entry.i,entry.j),Root())
-          );
-        ++sendCounts[owner];
-    }
+        mpi::Comm comm = g.ViewingComm();
+        const int commSize = mpi::Size( comm );
 
-    // Pack the data
-    // =============
-    vector<int> sendOffs;
-    const int totalSend = Scan( sendCounts, sendOffs );
-    vector<Entry<T>> sendBuf(totalSend);
-    auto offs = sendOffs;
-    for( const auto& entry : remoteUpdates_ )
+        // Compute the metadata
+        // ====================
+        vector<int> sendCounts(commSize,0);
+        for( const auto& entry : remoteUpdates_ )
+        {
+            const int owner = 
+              g.VCToViewing( 
+                g.CoordsToVC(ColDist(),RowDist(),Owner(entry.i,entry.j),Root())
+              );
+            ++sendCounts[owner];
+        }
+
+        // Pack the data
+        // =============
+        vector<int> sendOffs;
+        const int totalSend = Scan( sendCounts, sendOffs );
+        vector<Entry<T>> sendBuf(totalSend);
+        auto offs = sendOffs;
+        for( const auto& entry : remoteUpdates_ )
+        {
+            const int owner = 
+              g.VCToViewing( 
+                g.CoordsToVC(ColDist(),RowDist(),Owner(entry.i,entry.j),Root())
+              );
+            sendBuf[offs[owner]++] = entry;
+        }
+        SwapClear( remoteUpdates_ );
+
+        // Exchange and unpack the data
+        // ============================
+        auto recvBuf = mpi::AllToAll( sendBuf, sendCounts, sendOffs, comm );
+        Int recvBufSize = recvBuf.size();
+        mpi::Broadcast( recvBufSize, 0, RedundantComm() );
+        recvBuf.resize( recvBufSize );
+        mpi::Broadcast( recvBuf.data(), recvBufSize, 0, RedundantComm() );
+        // TODO: Make this loop faster
+        for( const auto& entry : recvBuf )
+            Update( entry );
+    }
+    else
     {
-        const int owner = 
-          g.VCToViewing( 
-            g.CoordsToVC(ColDist(),RowDist(),Owner(entry.i,entry.j),Root())
-          );
-        sendBuf[offs[owner]++] = entry;
-    }
-    SwapClear( remoteUpdates_ );
+        if( !Participating() )
+            return;
 
-    // Exchange and unpack the data
-    // ============================
-    auto recvBuf = mpi::AllToAll( sendBuf, sendCounts, sendOffs, comm );
-    Int recvBufSize = recvBuf.size();
-    mpi::Broadcast( recvBufSize, 0, RedundantComm() );
-    recvBuf.resize( recvBufSize );
-    mpi::Broadcast( recvBuf.data(), recvBufSize, 0, RedundantComm() );
-    // TODO: Make this loop faster
-    for( const auto& entry : recvBuf )
-        Update( entry );
+        mpi::Comm comm = g.VCComm();
+        const int commSize = mpi::Size( comm );
+
+        // Compute the metadata
+        // ====================
+        vector<int> sendCounts(commSize,0);
+        for( const auto& entry : remoteUpdates_ )
+        {
+            const int owner = 
+              g.CoordsToVC(ColDist(),RowDist(),Owner(entry.i,entry.j),Root());
+            ++sendCounts[owner];
+        }
+
+        // Pack the data
+        // =============
+        vector<int> sendOffs;
+        const int totalSend = Scan( sendCounts, sendOffs );
+        vector<Entry<T>> sendBuf(totalSend);
+        auto offs = sendOffs;
+        for( const auto& entry : remoteUpdates_ )
+        {
+            const int owner = 
+              g.CoordsToVC(ColDist(),RowDist(),Owner(entry.i,entry.j),Root());
+            sendBuf[offs[owner]++] = entry;
+        }
+        SwapClear( remoteUpdates_ );
+
+        // Exchange and unpack the data
+        // ============================
+        auto recvBuf = mpi::AllToAll( sendBuf, sendCounts, sendOffs, comm );
+        Int recvBufSize = recvBuf.size();
+        mpi::Broadcast( recvBufSize, 0, RedundantComm() );
+        recvBuf.resize( recvBufSize );
+        mpi::Broadcast( recvBuf.data(), recvBufSize, 0, RedundantComm() );
+        // TODO: Make this loop faster
+        for( const auto& entry : recvBuf )
+            Update( entry );
+    }
 }
 
 template<typename T>
@@ -757,14 +776,14 @@ EL_NO_RELEASE_EXCEPT
 { SetLocalRealPart( localEntry.i, localEntry.j, localEntry.value ); }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::SetLocalImagPart( Int iLoc, Int jLoc, Base<T> alpha )
+void AbstractDistMatrix<T>::SetLocalImagPart
+( Int iLoc, Int jLoc, Base<T> alpha )
 EL_NO_RELEASE_EXCEPT
 { matrix_.SetImagPart(iLoc,jLoc,alpha); }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::SetLocalImagPart( const Entry<Base<T>>& localEntry )
+void AbstractDistMatrix<T>::SetLocalImagPart
+( const Entry<Base<T>>& localEntry )
 EL_NO_RELEASE_EXCEPT
 { SetLocalImagPart( localEntry.i, localEntry.j, localEntry.value ); }
 
@@ -794,15 +813,14 @@ EL_NO_RELEASE_EXCEPT
 { UpdateLocalRealPart( localEntry.i, localEntry.j, localEntry.value ); }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::UpdateLocalImagPart
+void AbstractDistMatrix<T>::UpdateLocalImagPart
 ( Int iLoc, Int jLoc, Base<T> alpha )
 EL_NO_RELEASE_EXCEPT
 { matrix_.UpdateImagPart(iLoc,jLoc,alpha); }
 
 template<typename T>
-void
-AbstractDistMatrix<T>::UpdateLocalImagPart( const Entry<Base<T>>& localEntry )
+void AbstractDistMatrix<T>::UpdateLocalImagPart
+( const Entry<Base<T>>& localEntry )
 EL_NO_RELEASE_EXCEPT
 { UpdateLocalImagPart( localEntry.i, localEntry.j, localEntry.value ); }
 
@@ -856,14 +874,6 @@ AbstractDistMatrix<T>::SetRowShift()
 
 // Assertions
 // ==========
-
-template<typename T>
-void
-AbstractDistMatrix<T>::ComplainIfReal() const
-{ 
-    if( !IsComplex<T>::val )
-        LogicError("Called complex-only routine with real data");
-}
 
 template<typename T>
 void

@@ -55,7 +55,7 @@ public:
     // Assignment and reconfiguration
     // ==============================
 
-    void Empty();
+    void Empty( bool freeMemory=true );
     void Resize( Int height, Int width );
     void Resize( Int height, Int width, Int ldim );
 
@@ -118,6 +118,10 @@ public:
     bool Viewing()   const EL_NO_EXCEPT;
     bool FixedSize() const EL_NO_EXCEPT;
     bool Locked()    const EL_NO_EXCEPT;
+    // Advanced
+    // --------
+    void SetViewType( El::ViewType viewType ) EL_NO_EXCEPT;
+    El::ViewType ViewType() const EL_NO_EXCEPT;
 
     // Single-entry manipulation
     // =========================
@@ -127,10 +131,12 @@ public:
 
     void Set( Int i, Int j, scalarType alpha ) EL_NO_RELEASE_EXCEPT;
     void Set( const Entry<scalarType>& entry ) EL_NO_RELEASE_EXCEPT;
+
     void SetRealPart
     ( Int i, Int j, Base<scalarType> alpha ) EL_NO_RELEASE_EXCEPT;
     void SetImagPart
     ( Int i, Int j, Base<scalarType> alpha ) EL_NO_RELEASE_EXCEPT;
+
     void SetRealPart
     ( const Entry<Base<scalarType>>& entry ) EL_NO_RELEASE_EXCEPT;
     void SetImagPart
@@ -138,10 +144,12 @@ public:
 
     void Update( Int i, Int j, scalarType alpha ) EL_NO_RELEASE_EXCEPT;
     void Update( const Entry<scalarType>& entry ) EL_NO_RELEASE_EXCEPT;
+
     void UpdateRealPart
     ( Int i, Int j, Base<scalarType> alpha ) EL_NO_RELEASE_EXCEPT;
     void UpdateImagPart
     ( Int i, Int j, Base<scalarType> alpha ) EL_NO_RELEASE_EXCEPT;
+
     void UpdateRealPart
     ( const Entry<Base<scalarType>>& entry ) EL_NO_RELEASE_EXCEPT;
     void UpdateImagPart
@@ -153,10 +161,13 @@ public:
 private:
     // Member variables
     // ================
-    ViewType viewType_;
+    El::ViewType viewType_;
     Int height_, width_, ldim_;
-    const scalarType* data_;
+
     Memory<scalarType> memory_;
+    // Const-correctness is internally managed to avoid the need for storing
+    // two separate pointers with different 'const' attributes
+    scalarType* data_;
 
     // Exchange metadata with another matrix
     // =====================================
@@ -164,7 +175,7 @@ private:
 
     // Reconfigure without error-checking
     // ==================================
-    void Empty_();
+    void Empty_( bool freeMemory=true );
     void Resize_( Int height, Int width );
     void Resize_( Int height, Int width, Int ldim );
 
@@ -182,18 +193,16 @@ private:
 
     // Assertions
     // ==========
-    void ComplainIfReal() const;
     void AssertValidDimensions( Int height, Int width ) const;
     void AssertValidDimensions( Int height, Int width, Int ldim ) const;
     void AssertValidEntry( Int i, Int j ) const;
    
     // Friend declarations
     // ===================
-    template <typename F> friend class Matrix;
-    template <typename F> friend class AbstractDistMatrix;
-    template <typename F> friend class ElementalMatrix;
-    template <typename F> friend class BlockMatrix;
-    template <typename F,Dist U,Dist V,DistWrap wrap> friend class DistMatrix;
+    template<typename S> friend class Matrix;
+    template<typename S> friend class AbstractDistMatrix;
+    template<typename S> friend class ElementalMatrix;
+    template<typename S> friend class BlockMatrix;
 };
 
 } // namespace El

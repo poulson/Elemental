@@ -11,7 +11,7 @@ include(ElCheckFunctionExists)
 include(ElLibraryName)
 
 set(USE_FOUND_PARMETIS FALSE)
-if(NOT EL_BUILD_PARMETIS)
+if(NOT EL_FORCE_PARMETIS_BUILD)
   message(STATUS "Searching for previously installed ParMETIS")
   find_package(ParMETIS)
   if(PARMETIS_FOUND)
@@ -39,7 +39,14 @@ if(USE_FOUND_PARMETIS)
   # find_package returns 'PARMETIS_LIBRARIES' but ParMETIS's CMakeLists.txt
   # returns 'PARMETIS_LIBS'
   set(PARMETIS_LIBS ${PARMETIS_LIBRARIES})
-else()
+
+  set(EXTERNAL_LIBS ${EXTERNAL_LIBS} ${PARMETIS_LIBS})
+  message(STATUS "Including ${PARMETIS_INCLUDE_DIR} for external ParMETIS")
+  include_directories(${PARMETIS_INCLUDE_DIR})
+  set(EL_HAVE_METIS TRUE)
+  set(EL_HAVE_PARMETIS TRUE)
+
+elseif(NOT EL_PREVENT_PARMETIS_DOWNLOAD)
   if(NOT DEFINED PARMETIS_URL)
     set(PARMETIS_URL https://github.com/poulson/parmetis.git)
   endif()
@@ -100,11 +107,13 @@ else()
 
   set(PARMETIS_LIBS ${PARMETIS_LIB} ${METIS_LIB})
   set(EL_BUILT_PARMETIS TRUE)
+
+  set(EXTERNAL_LIBS ${EXTERNAL_LIBS} ${PARMETIS_LIBS})
+  message(STATUS "Including ${PARMETIS_INCLUDE_DIR} for external ParMETIS")
+  include_directories(${PARMETIS_INCLUDE_DIR})
+  set(EL_HAVE_METIS TRUE)
+  set(EL_HAVE_PARMETIS TRUE)
+else()
+  set(EL_HAVE_METIS FALSE)
+  set(EL_HAVE_PARMETIS FALSE)
 endif()
-
-set(EXTERNAL_LIBS ${EXTERNAL_LIBS} ${PARMETIS_LIBS})
-
-message(STATUS "Including ${PARMETIS_INCLUDE_DIR} for external ParMETIS")
-include_directories(${PARMETIS_INCLUDE_DIR})
-set(EL_HAVE_METIS TRUE)
-set(EL_HAVE_PARMETIS TRUE)

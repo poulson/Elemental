@@ -94,12 +94,12 @@ void MakeSymmetric( UpperOrLower uplo, SparseMatrix<T>& A, bool conjugate )
         if( e < numEntries && sBuf[e] == i && tBuf[e] == i )
         {
             ++numDiagonal;
-            if( conjugate && IsComplex<T>::val )
+            if( conjugate && IsComplex<T>::value )
                 vBuf[e] = RealPart(vBuf[e]);
         }
     }
 
-    A.Reserve( numEntries + (numEntries-numDiagonal) );
+    A.Reserve( numEntries-numDiagonal );
     sBuf = A.LockedSourceBuffer();
     tBuf = A.LockedTargetBuffer();
     vBuf = A.ValueBuffer();
@@ -147,52 +147,34 @@ void MakeSymmetric( UpperOrLower uplo, DistSparseMatrix<T>& A, bool conjugate )
     T* vBuf = A.ValueBuffer();
     const Int* sBuf = A.LockedSourceBuffer();
     const Int* tBuf = A.LockedTargetBuffer();
-    if( conjugate && IsComplex<T>::val )
+    if( conjugate && IsComplex<T>::value )
     {
         for( Int k=0; k<numLocalEntries; ++k )
             if( sBuf[k] == tBuf[k] )
                 vBuf[k] = RealPart(vBuf[k]);
     }
 
-    // Compute the number of entries to send to each process
-    // =====================================================
-    mpi::Comm comm = A.Comm();
-    const int commSize = mpi::Size(comm);
-    vector<int> sendCounts(commSize,0);
+    // Compute the number of entries to send
+    // =====================================
+    Int numSend = 0;
     for( Int k=0; k<numLocalEntries; ++k )
     {
         const Int i = sBuf[k];
         const Int j = tBuf[k];
         if( (uplo == LOWER && i > j) || (uplo == UPPER && i < j) )
-            ++sendCounts[ A.RowOwner(j) ];
+            ++numSend;
     }
 
-    // Pack the triplets
+    // Apply the updates
     // =================
-    vector<int> sendOffs;
-    const int totalSend = Scan( sendCounts, sendOffs );
-    vector<Entry<T>> sendBuf(totalSend);
-    auto offs = sendOffs;
+    A.Reserve( numSend, numSend );
     for( Int k=0; k<numLocalEntries; ++k )
     {
         const Int i = sBuf[k];
         const Int j = tBuf[k];
         if( (uplo == LOWER && i > j) || (uplo == UPPER && i < j) )
-        {
-            const int owner = A.RowOwner(j);
-            const Int s = offs[owner]++;
-            sendBuf[s].i = j;
-            sendBuf[s].j = i;
-            sendBuf[s].value = ( conjugate ? Conj(vBuf[k]) : vBuf[k] );
-        }
+            A.QueueUpdate( j, i, ( conjugate ? Conj(vBuf[k]) : vBuf[k] ) );
     }
-
-    // Exchange and unpack the triplets
-    // ================================
-    auto recvBuf = mpi::AllToAll( sendBuf, sendCounts, sendOffs, comm );
-    A.Reserve( A.NumLocalEntries()+recvBuf.size() );
-    for( auto& entry : recvBuf )
-        A.QueueUpdate( entry );
     A.ProcessQueues();
 }
 

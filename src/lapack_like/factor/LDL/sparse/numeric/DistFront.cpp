@@ -863,7 +863,6 @@ void DistFront<F>::Unpack
 {
     DEBUG_ONLY(CSE cse("DistFront::Unpack"))
     mpi::Comm comm = rootInfo.grid->Comm();
-    const int commSize = mpi::Size(comm);
     A.SetComm( comm );
     const Int n = rootInfo.off + rootInfo.size;
     Zeros( A, n, n );
@@ -892,15 +891,13 @@ void DistFront<F>::Unpack
                 A.QueueUpdate
                 ( front.LSparse.Row(e)+node.off, 
                   front.LSparse.Col(e)+node.off,
-                  front.LSparse.Value(e), false );
+                  front.LSparse.Value(e) );
 
             for( Int s=0; s<structSize; ++s ) 
             {
                 const Int i = node.lowerStruct[s];
-                const int q = A.RowOwner(i);
                 for( Int t=0; t<node.size; ++t )
-                    A.QueueUpdate
-                    ( i, t+node.off, front.LDense.Get(s,t), false );
+                    A.QueueUpdate( i, t+node.off, front.LDense.Get(s,t) );
             }
         }
         else
@@ -909,17 +906,15 @@ void DistFront<F>::Unpack
             {
                 const Int i = node.off + s;
                 for( Int t=0; t<=s; ++t ) 
-                    A.QueueUpdate
-                    ( i, t+node.off, front.LDense.Get(s,t), false );
+                    A.QueueUpdate( i, t+node.off, front.LDense.Get(s,t) );
             }
 
             for( Int s=0; s<structSize; ++s ) 
             {
                 const Int i = node.lowerStruct[s];
-                const int q = A.RowOwner(i);
                 for( Int t=0; t<node.size; ++t )
                     A.QueueUpdate
-                    ( i, t+node.off, front.LDense.Get(node.size+s,t), false );
+                    ( i, t+node.off, front.LDense.Get(node.size+s,t) );
             }
         }
       };
@@ -950,13 +945,11 @@ void DistFront<F>::Unpack
             {
                 const Int s = FTL.GlobalRow(sLoc);
                 const Int i = node.off + s;
-                const int q = A.RowOwner(i);
                 for( Int tLoc=0; tLoc<localWidth; ++tLoc )
                 {
                     const Int t = FTL.GlobalCol(tLoc);
                     if( t <= s )
-                        A.QueueUpdate
-                        ( i, t+node.off, FTL.GetLocal(sLoc,tLoc), false );
+                        A.QueueUpdate( i, t+node.off, FTL.GetLocal(sLoc,tLoc) );
                 }
             }
 
@@ -964,12 +957,10 @@ void DistFront<F>::Unpack
             {
                 const Int s = FBL.GlobalRow(sLoc);
                 const Int i = node.lowerStruct[s];
-                const int q = A.RowOwner(i);
                 for( Int tLoc=0; tLoc<localWidth; ++tLoc )
                 {
                     Int t = FBL.GlobalCol(tLoc);
-                    A.QueueUpdate
-                    ( i, t+node.off, FBL.GetLocal(sLoc,tLoc), false );
+                    A.QueueUpdate( i, t+node.off, FBL.GetLocal(sLoc,tLoc) );
                 }
             }
         }
@@ -987,13 +978,11 @@ void DistFront<F>::Unpack
             {
                 const Int s = FTL.GlobalRow(sLoc);
                 const Int i = node.off + s;
-                const int q = A.RowOwner(i);
                 for( Int tLoc=0; tLoc<localWidth; ++tLoc )
                 {
                     const Int t = FTL.GlobalCol(tLoc);
                     if( t <= s )
-                        A.QueueUpdate
-                        ( i, t+node.off, FTL.GetLocal(sLoc,tLoc), false );
+                        A.QueueUpdate( i, t+node.off, FTL.GetLocal(sLoc,tLoc) );
                 }
             }
 
@@ -1001,12 +990,10 @@ void DistFront<F>::Unpack
             {
                 const Int s = FBL.GlobalRow(sLoc);
                 const Int i = node.lowerStruct[s];
-                const int q = A.RowOwner(i);
                 for( Int tLoc=0; tLoc<localWidth; ++tLoc )
                 {
                     Int t = FBL.GlobalCol(tLoc);
-                    A.QueueUpdate
-                    ( i, t+node.off, FBL.GetLocal(sLoc,tLoc), false );
+                    A.QueueUpdate( i, t+node.off, FBL.GetLocal(sLoc,tLoc) );
                 }
             }
         }
@@ -1174,7 +1161,8 @@ double DistFront<F>::LocalFactorGFlops( bool selInv ) const
         double realFrontFlops = 
           ( selInv ? (2*n*n*n/3) + (m-n)*n + (m-n)*(m-n)*n
                    : (1*n*n*n/3) + (m-n)*n + (m-n)*(m-n)*n ) / p;
-        gflops += (IsComplex<F>::val ? 4*realFrontFlops : realFrontFlops)/1.e9;
+        gflops += (IsComplex<F>::value ? 4*realFrontFlops
+                                       : realFrontFlops)/1.e9;
       };
     count( *this );
     return gflops;
@@ -1209,7 +1197,8 @@ double DistFront<F>::LocalSolveGFlops( Int numRHS ) const
             p = front.L2D.DistSize();
         }
         double realFrontFlops = (m*n*numRHS) / p;
-        gflops += (IsComplex<F>::val ? 4*realFrontFlops : realFrontFlops)/1.e9;
+        gflops += (IsComplex<F>::value ? 4*realFrontFlops
+                                       : realFrontFlops)/1.e9;
       };
     count( *this );
     return gflops;

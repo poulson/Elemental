@@ -29,7 +29,13 @@ Int blockHeight=32, blockWidth=32;
 std::mt19937 generator;
 
 // Debugging
-DEBUG_ONLY(std::stack<string> callStack)
+DEBUG_ONLY(
+  std::stack<string> callStack;
+  bool tracingEnabled = false;
+)
+
+// A (per-process) output file for logging
+std::ofstream logFile;
 
 // Output/logging
 Int indentLevel=0;
@@ -418,6 +424,8 @@ void Finalize()
         while( ! ::blocksizeStack.empty() )
             ::blocksizeStack.pop();
     }
+
+    DEBUG_ONLY( CloseLog() )
 }
 
 Args& GetArgs()
@@ -491,7 +499,7 @@ void Args::HandleVersion( ostream& os ) const
     const bool foundVersion = ( arg != argv_+argc_ );
     if( foundVersion )
     {
-        if( mpi::WorldRank() == 0 )
+        if( mpi::Rank() == 0 )
             PrintVersion();
         throw ArgException();
     }
@@ -504,7 +512,7 @@ void Args::HandleBuild( ostream& os ) const
     const bool foundBuild = ( arg != argv_+argc_ );
     if( foundBuild )
     {
-        if( mpi::WorldRank() == 0 )
+        if( mpi::Rank() == 0 )
         {
             PrintVersion();
             PrintConfig();
@@ -528,28 +536,28 @@ void ReportException( const exception& e, ostream& os )
     {
         if( string(e.what()) != "" )
         {
-            os << "Process " << mpi::WorldRank() 
+            os << "Process " << mpi::Rank() 
                << " caught an unrecoverable exception with message:\n"
                << e.what() << endl;
         }
         DEBUG_ONLY(DumpCallStack(os))
+        mpi::Abort( mpi::COMM_WORLD, 1 );
     }
     catch( exception& castExcept ) 
     { 
         if( string(e.what()) != "" )
         {
-            os << "Process " << mpi::WorldRank() << " caught error message:\n"
+            os << "Process " << mpi::Rank() << " caught error message:\n"
                << e.what() << endl;
         }
         DEBUG_ONLY(DumpCallStack(os))
-        mpi::Abort( mpi::COMM_WORLD, 1 );
     }
 }
 
 void ComplainIfDebug()
 {
     DEBUG_ONLY(
-        if( mpi::WorldRank() == 0 )
+        if( mpi::Rank() == 0 )
         {
             Output("=======================================================");
             Output(" In debug mode! Do not expect competitive performance! ");
@@ -561,6 +569,9 @@ void ComplainIfDebug()
 // If we are not in RELEASE mode, then implement wrappers for a CallStack
 DEBUG_ONLY(
 
+    void EnableTracing() { ::tracingEnabled = true; }
+    void DisableTracing() { ::tracingEnabled = false; }
+
     void PushCallStack( string s )
     { 
 #ifdef EL_HYBRID
@@ -568,6 +579,15 @@ DEBUG_ONLY(
             return;
 #endif
         ::callStack.push(s); 
+        if( ::tracingEnabled )
+        {
+            const int stackSize = ::callStack.size();
+            ostringstream os;
+            for( int j=0; j<stackSize; ++j )
+                os << " "; 
+            os << s << endl;
+            cout <<  os.str();
+        }
     }
 
     void PopCallStack()
@@ -595,6 +615,27 @@ DEBUG_ONLY(
     }
 
 ) // DEBUG_ONLY
+
+void OpenLog( const char* filename )
+{
+    if( ::logFile.is_open() )
+        CloseLog();
+    ::logFile.open( filename );
+}
+
+std::ostream& LogOS()
+{
+    if( !::logFile.is_open() )
+    {
+        ostringstream fileOS;
+        fileOS << "El-Proc" << std::setfill('0') << std::setw(3)
+               << mpi::Rank() << ".log";
+        ::logFile.open( fileOS.str().c_str() );
+    }
+    return ::logFile; 
+}
+
+void CloseLog() { ::logFile.close(); }
 
 Int PushIndent() { return ::indentLevel++; }
 Int PopIndent() { return ::indentLevel--; }

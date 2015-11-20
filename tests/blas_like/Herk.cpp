@@ -7,7 +7,6 @@
    http://opensource.org/licenses/BSD-2-Clause
 */
 #include "El.hpp"
-using namespace std;
 using namespace El;
 
 template<typename T>
@@ -24,22 +23,30 @@ void TestCorrectness
     if( ARoot.Root() == ARoot.CrossRank() )
     {
         Matrix<T> CSeq( COrigRoot.Matrix() );
-        Herk
-        ( uplo, orientation, alpha, ARoot.Matrix(), beta,  CSeq );
+        Herk( uplo, orientation, alpha, ARoot.Matrix(), beta,  CSeq );
         const Base<T> CNrm = FrobeniusNorm( CRoot.Matrix() );
         CRoot.Matrix() -= CSeq;
         const Base<T> ENrm = FrobeniusNorm( CRoot.Matrix() );
-        cout << " || E ||_F = " << ENrm << "\n"
-             << " || C ||_F = " << CNrm << endl;
+        Output(" || E ||_F = ",ENrm);
+        Output(" || C ||_F = ",CNrm);
     }
 }
 
 template<typename T> 
 void TestHerk
-( UpperOrLower uplo, Orientation orientation,
-  Int m, Int k, Base<T> alpha, Base<T> beta, const Grid& g,
-  bool print, bool correctness,
-  Int colAlignA=0, Int rowAlignA=0, Int colAlignC=0, Int rowAlignC=0 )
+( UpperOrLower uplo,
+  Orientation orientation,
+  Int m,
+  Int k,
+  Base<T> alpha,
+  Base<T> beta,
+  const Grid& g,
+  bool print,
+  bool correctness,
+  Int colAlignA=0,
+  Int rowAlignA=0,
+  Int colAlignC=0,
+  Int rowAlignC=0 )
 {
     DistMatrix<T> A(g), C(g);
     A.Align( colAlignA, rowAlignA );
@@ -58,42 +65,32 @@ void TestHerk
     }
 
     if( g.Rank() == 0 )
-    {
-        cout << "  Starting Herk...";
-        cout.flush();
-    }
+        Output("  Starting Herk");
     mpi::Barrier( g.Comm() );
     const double startTime = mpi::Time();
     Herk( uplo, orientation, alpha, A, beta, C );
     mpi::Barrier( g.Comm() );
     const double runTime = mpi::Time() - startTime;
     const double realGFlops = double(m)*double(m)*double(k)/(1.e9*runTime);
-    const double gFlops = ( IsComplex<T>::val ? 4*realGFlops : realGFlops );
+    const double gFlops = ( IsComplex<T>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "DONE. " << endl
-             << "  Time = " << runTime << " seconds. GFlops = " 
-             << gFlops << endl;
-    }
+        Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s)");
     if( print )
     {
-        ostringstream msg;
         if( orientation == NORMAL )
-            msg << "C := " << alpha << " A A' + " << beta << " C";
+            Print( C, BuildString("C := ",alpha," A A' + ",beta," C") );
         else
-            msg << "C := " << alpha << " A' A + " << beta << " C";
-        Print( C, msg.str() );
+            Print( C, BuildString("C := ",alpha," A' A + ",beta," C") );
     }
 
     if( correctness )
-        TestCorrectness
-        ( uplo, orientation, alpha, A, beta, COrig, C, print );
+        TestCorrectness( uplo, orientation, alpha, A, beta, COrig, C, print );
 }
 
 int 
 main( int argc, char* argv[] )
 {
-    Initialize( argc, argv );
+    Environment env( argc, argv );
     mpi::Comm comm = mpi::COMM_WORLD;
     const Int commRank = mpi::Rank( comm );
     const Int commSize = mpi::Size( comm );
@@ -129,22 +126,21 @@ main( int argc, char* argv[] )
 
         ComplainIfDebug();
         if( commRank == 0 )
-            cout << "Will test Herk" << uploChar << transChar << endl;
+            Output("Will test Herk ",uploChar,transChar);
 
         if( commRank == 0 )
-            cout << "Testing with doubles:" << endl;
+            Output("Testing with doubles");
         TestHerk<double>
         ( uplo, orientation, m, k, 3., 4., g, print, correctness,
           colAlignA, rowAlignA, colAlignC, rowAlignC );
 
         if( commRank == 0 )
-            cout << "Testing with double-precision complex:" << endl;
+            Output("Testing with Complex<double>");
         TestHerk<Complex<double>>
         ( uplo, orientation, m, k, 3., 4., g, print, correctness,
           colAlignA, rowAlignA, colAlignC, rowAlignC );
     }
     catch( exception& e ) { ReportException(e); }
 
-    Finalize();
     return 0;
 }

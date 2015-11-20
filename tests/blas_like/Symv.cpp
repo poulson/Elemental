@@ -7,13 +7,16 @@
    http://opensource.org/licenses/BSD-2-Clause
 */
 #include "El.hpp"
-using namespace std;
 using namespace El;
 
 template<typename T> 
 void TestSymv
-( const UpperOrLower uplo, const Int m, const T alpha, const T beta, 
-  const bool print, const Grid& g )
+( UpperOrLower uplo,
+  Int m,
+  T alpha,
+  T beta, 
+  bool print,
+  const Grid& g )
 {
     DistMatrix<T> A(g), x(g), y(g);
 
@@ -29,35 +32,24 @@ void TestSymv
 
     // Test Symm
     if( g.Rank() == 0 )
-    {
-        cout << "  Starting Parallel Symv...";
-        cout.flush();
-    }
+        Output("  Starting Symv");
     mpi::Barrier( g.Comm() );
     const double startTime = mpi::Time();
     Symv( uplo, alpha, A, x, beta, y );
     mpi::Barrier( g.Comm() );
     const double runTime = mpi::Time() - startTime;
     const double realGFlops = 2.*double(m)*double(m)/(1.e9*runTime);
-    const double gFlops = ( IsComplex<T>::val ? 4*realGFlops : realGFlops );
+    const double gFlops = ( IsComplex<T>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "DONE. " << endl
-             << "  Time = " << runTime << " seconds. GFlops = " 
-             << gFlops << endl;
-    }
+        Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s");
     if( print )
-    {
-        ostringstream msg;
-        msg << "y := " << alpha << " Symm(A) x + " << beta << " y";
-        Print( y, msg.str() );
-    }
+        Print( y, BuildString("y := ",alpha," Symm(A) x + ",beta," y") );
 }
 
 int 
 main( int argc, char* argv[] )
 {
-    Initialize( argc, argv );
+    Environment env( argc, argv );
     mpi::Comm comm = mpi::COMM_WORLD;
     const Int commRank = mpi::Rank( comm );
     const Int commSize = mpi::Size( comm );
@@ -88,19 +80,18 @@ main( int argc, char* argv[] )
 
         ComplainIfDebug();
         if( commRank == 0 )
-            cout << "Will test Symv" << uploChar << endl;
+            Output("Will test Symv ",uploChar);
 
         if( commRank == 0 )
-            cout << "Testing with doubles:" << endl;
+            Output("Testing with doubles");
         TestSymv<double>( uplo, m, 3., 4., print, g );
 
         if( commRank == 0 )
-            cout << "Testing with double-precision complex:" << endl;
+            Output("Testing with Complex<double>");
         TestSymv<Complex<double>>
         ( uplo, m, Complex<double>(3), Complex<double>(4), print, g );
     }
     catch( exception& e ) { ReportException(e); }
 
-    Finalize();
     return 0;
 }

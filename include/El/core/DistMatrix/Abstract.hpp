@@ -32,10 +32,8 @@ public:
 
     // Assignment and reconfiguration
     // ==============================
-    virtual void Empty();
-    virtual void SoftEmpty();
-    void EmptyData();
-    void SoftEmptyData();
+    virtual void Empty( bool freeMemory=true );
+    void EmptyData( bool freeMemory=true );
     void SetGrid( const El::Grid& grid );
 
     virtual void AlignWith
@@ -218,7 +216,7 @@ public:
     void Reserve( Int numRemoteEntries );
     void QueueUpdate( const Entry<scalarType>& entry ) EL_NO_RELEASE_EXCEPT;
     void QueueUpdate( Int i, Int j, scalarType value ) EL_NO_RELEASE_EXCEPT;
-    void ProcessQueues();
+    void ProcessQueues( bool includeViewers=true );
 
     // Batch extraction of remote entries
     // ----------------------------------
@@ -281,7 +279,6 @@ public:
 
     // Assertions
     // ==========
-    void ComplainIfReal() const;
     void AssertNotLocked() const;
     void AssertNotStoringData() const;
     void AssertValidEntry( Int i, Int j ) const;
@@ -291,6 +288,12 @@ public:
 protected:
     // Member variables
     // ================
+
+    // Global and local matrix information 
+    // -----------------------------------
+    ViewType viewType_=OWNER;
+    Int height_=0, width_=0;
+
     bool colConstrained_=false,
          rowConstrained_=false,
          rootConstrained_=false;
@@ -299,13 +302,9 @@ protected:
         colShift_=0,
         rowShift_=0;
     int root_=0;
-
-    // Global and local matrix information 
-    // -----------------------------------
-    ViewType viewType_=OWNER;
-    Int height_=0, width_=0;
-    El::Matrix<scalarType> matrix_=El::Matrix<scalarType>(0,0,true);
     const El::Grid* grid_;
+
+    El::Matrix<scalarType> matrix_=El::Matrix<scalarType>(0,0,true);
 
     // Remote updates
     // --------------
@@ -331,7 +330,9 @@ private:
     // =====================================
     void ShallowSwap( type& A );
 
-    template<typename S,Dist J,Dist K,DistWrap wrap> friend class DistMatrix;
+    template<typename S> friend class AbstractDistMatrix;
+    template<typename S> friend class ElementalMatrix;
+    template<typename S> friend class BlockMatrix;
 };
 
 struct DistData

@@ -7,7 +7,6 @@
    http://opensource.org/licenses/BSD-2-Clause
 */
 #include "El.hpp"
-using namespace std;
 using namespace El;
 
 template<typename F>
@@ -77,10 +76,7 @@ void TestQuasiTrsm
         Print( Y, "Y" );
     }
     if( g.Rank() == 0 )
-    {
-        cout << "  Starting QuasiTrsm...";
-        cout.flush();
-    }
+        Output("  Starting QuasiTrsm");
     mpi::Barrier( g.Comm() );
     const double startTime = mpi::Time();
     QuasiTrsm( side, uplo, orientation, alpha, H, Y );
@@ -89,13 +85,9 @@ void TestQuasiTrsm
     const double realGFlops = 
         ( side==LEFT ? double(m)*double(m)*double(n)
                      : double(m)*double(n)*double(n) ) /(1.e9*runTime);
-    const double gFlops = ( IsComplex<F>::val ? 4*realGFlops : realGFlops );
+    const double gFlops = ( IsComplex<F>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "DONE. \n"
-             << "  Time = " << runTime << " seconds. GFlops = " << gFlops 
-             << endl;
-    }
+        Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s)");
     if( print )
         Print( Y, "Y after solve" );
     Y -= X;
@@ -104,16 +96,16 @@ void TestQuasiTrsm
     const auto EFrob = FrobeniusNorm( Y );
     if( g.Rank() == 0 )
     {
-        cout << "|| H ||_F = " << HFrob << "\n"
-             << "|| X ||_F = " << XFrob << "\n"
-             << "|| E ||_F = " << EFrob << "\n" << std::endl;
+        Output("  || H ||_F = ",HFrob);
+        Output("  || X ||_F = ",XFrob);
+        Output("  || E ||_F = ",EFrob);
     }
 }
 
 int 
 main( int argc, char* argv[] )
 {
-    Initialize( argc, argv );
+    Environment env( argc, argv );
     mpi::Comm comm = mpi::COMM_WORLD;
     const Int commRank = mpi::Rank( comm );
     const Int commSize = mpi::Size( comm );
@@ -145,20 +137,18 @@ main( int argc, char* argv[] )
 
         ComplainIfDebug();
         if( commRank == 0 )
-            cout << "Will test QuasiTrsm" 
-                 << sideChar << uploChar << transChar << endl;
+            Output("Will test QuasiTrsm ",sideChar,uploChar,transChar);
 
         if( commRank == 0 )
-            cout << "Testing with doubles:" << endl;
+            Output("Testing with doubles");
         TestQuasiTrsm<double>( print, side, uplo, orientation, m, n, 3., g );
 
         if( commRank == 0 )
-            cout << "Testing with double-precision complex:" << endl;
+            Output("Testing with Complex<double>");
         TestQuasiTrsm<Complex<double>>
         ( print, side, uplo, orientation, m, n, Complex<double>(3), g );
     }
     catch( exception& e ) { ReportException(e); }
 
-    Finalize();
     return 0;
 }

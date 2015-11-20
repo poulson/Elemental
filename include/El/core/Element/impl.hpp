@@ -553,6 +553,87 @@ inline Complex<Quad> Atanh( const Complex<Quad>& alphaPre )
 }
 #endif
 
+// Rounding
+// ========
+
+// Round to the nearest integer
+// ----------------------------
+template<typename T,typename>
+inline T Round( const T& alpha ) { return std::round(alpha); }
+
+// Partial specializations
+// ^^^^^^^^^^^^^^^^^^^^^^^
+template<typename T,typename>
+inline Complex<T> Round( const Complex<T>& alpha )
+{ return Complex<T>(Round(alpha.real()),Round(alpha.imag())); }
+
+// Full specializations
+// ^^^^^^^^^^^^^^^^^^^^
+inline Int Round( const Int& alpha ) { return alpha; }
+#ifdef EL_HAVE_QUAD
+inline Quad Round( const Quad& alpha ) { return rintq(alpha); }
+#endif
+
+// Ceiling
+// -------
+template<typename T,typename>
+inline T Ceil( const T& alpha ) { return std::ceil(alpha); }
+
+// Partial specializations
+// ^^^^^^^^^^^^^^^^^^^^^^^
+template<typename T,typename>
+inline Complex<T> Ceil( const Complex<T>& alpha )
+{ return Complex<T>(Ceil(alpha.real()),Ceil(alpha.imag())); }
+
+// Full specializations
+// ^^^^^^^^^^^^^^^^^^^^
+inline Int Ceil( const Int& alpha ) { return alpha; }
+#ifdef EL_HAVE_QUAD
+inline Quad Ceil( const Quad& alpha ) { return ceilq(alpha); }
+#endif
+
+// Floor
+// -----
+template<typename T,typename>
+inline T Floor( const T& alpha ) { return std::floor(alpha); }
+
+// Partial specializations
+// ^^^^^^^^^^^^^^^^^^^^^^^
+template<typename T,typename>
+inline Complex<T> Floor( const Complex<T>& alpha )
+{ return Complex<T>(Floor(alpha.real()),Floor(alpha.imag())); }
+
+// Full specializations
+// ^^^^^^^^^^^^^^^^^^^^
+inline Int Floor( const Int& alpha ) { return alpha; }
+#ifdef EL_HAVE_QUAD
+inline Quad Floor( const Quad& alpha ) { return floorq(alpha); }
+#endif
+
+// Two-norm formation
+// ==================
+template<typename F>
+inline void UpdateScaledSquare
+( F alpha, Base<F>& scale, Base<F>& scaledSquare ) EL_NO_EXCEPT
+{
+    typedef Base<F> Real;
+    Real alphaAbs = Abs(alpha);
+    if( alphaAbs != 0 )
+    {
+        if( alphaAbs <= scale )
+        {
+            const Real relScale = alphaAbs/scale;
+            scaledSquare += relScale*relScale;
+        }
+        else
+        {
+            const Real relScale = scale/alphaAbs;
+            scaledSquare = scaledSquare*relScale*relScale + Real(1);
+            scale = alphaAbs;
+        }
+    }
+}
+
 } // namespace El
 
 #endif // ifndef EL_ELEMENT_IMPL_HPP

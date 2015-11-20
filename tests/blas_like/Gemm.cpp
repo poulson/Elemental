@@ -7,13 +7,13 @@
    http://opensource.org/licenses/BSD-2-Clause
 */
 #include "El.hpp"
-using namespace std;
 using namespace El;
 
 template<typename T>
 void TestCorrectness
 ( Orientation orientA, Orientation orientB,
-  T alpha, const DistMatrix<T>& A,     const DistMatrix<T>& B, 
+  T alpha, const DistMatrix<T>& A,
+           const DistMatrix<T>& B, 
   T beta,  const DistMatrix<T>& COrig, 
            const DistMatrix<T>& CFinal, 
   bool print )
@@ -31,8 +31,8 @@ void TestCorrectness
         const Base<T> CNrm = FrobeniusNorm( CFinalRoot.Matrix() );
         CFinalRoot.Matrix() -= CSeq;
         const Base<T> ENrm = FrobeniusNorm( CFinalRoot.Matrix() );
-        cout << " || E ||_F = " << ENrm << "\n"
-             << " || C ||_F = " << CNrm << endl;
+        Output(" || E ||_F = ",ENrm);
+        Output(" || C ||_F = ",CNrm);
     }
 }
 
@@ -71,76 +71,54 @@ void TestGemm
     // Test the variant of Gemm that keeps A stationary
     C = COrig;
     if( g.Rank() == 0 )
-        cout << "Stationary A Algorithm:" << endl;
+        Output("Stationary A algorithm:");
     mpi::Barrier( g.Comm() );
     startTime = mpi::Time();
     Gemm( orientA, orientB, alpha, A, B, beta, C, GEMM_SUMMA_A );
     mpi::Barrier( g.Comm() );
     runTime = mpi::Time() - startTime;
     realGFlops = 2.*double(m)*double(n)*double(k)/(1.e9*runTime);
-    gFlops = ( IsComplex<T>::val ? 4*realGFlops : realGFlops );
+    gFlops = ( IsComplex<T>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "  Time = " << runTime << " seconds. GFlops = " 
-             << gFlops << endl;
-    }
+        Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s)");
     if( print )
-    {
-        ostringstream msg;
-        msg << "C := " << alpha << " A B + " << beta << " C";
-        Print( C, msg.str() );
-    }
+        Print( C, BuildString("C := ",alpha," A B + ",beta," C") );
     if( correctness )
         TestCorrectness( orientA, orientB, alpha, A, B, beta, COrig, C, print );
 
     // Test the variant of Gemm that keeps B stationary
     C = COrig;
     if( g.Rank() == 0 )
-        cout << "Stationary B Algorithm:" << endl;
+        Output("Stationary B Algorithm:");
     mpi::Barrier( g.Comm() );
     startTime = mpi::Time();
     Gemm( orientA, orientB, alpha, A, B, beta, C, GEMM_SUMMA_B );
     mpi::Barrier( g.Comm() );
     runTime = mpi::Time() - startTime;
     realGFlops = 2.*double(m)*double(n)*double(k)/(1.e9*runTime);
-    gFlops = ( IsComplex<T>::val ? 4*realGFlops : realGFlops );
+    gFlops = ( IsComplex<T>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "  Time = " << runTime << " seconds. GFlops = " 
-             << gFlops << endl;
-    }
+        Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s)");
     if( print )
-    {
-        ostringstream msg;
-        msg << "C := " << alpha << " A B + " << beta << " C";
-        Print( C, msg.str() );
-    }
+        Print( C, BuildString("C := ",alpha," A B + ",beta," C") );
     if( correctness )
         TestCorrectness( orientA, orientB, alpha, A, B, beta, COrig, C, print );
 
     // Test the variant of Gemm that keeps C stationary
     C = COrig;
     if( g.Rank() == 0 )
-        cout << "Stationary C Algorithm:" << endl;
+        Output("Stationary C Algorithm:");
     mpi::Barrier( g.Comm() );
     startTime = mpi::Time();
     Gemm( orientA, orientB, alpha, A, B, beta, C, GEMM_SUMMA_C );
     mpi::Barrier( g.Comm() );
     runTime = mpi::Time() - startTime;
     realGFlops = 2.*double(m)*double(n)*double(k)/(1.e9*runTime);
-    gFlops = ( IsComplex<T>::val ? 4*realGFlops : realGFlops );
+    gFlops = ( IsComplex<T>::value ? 4*realGFlops : realGFlops );
     if( g.Rank() == 0 )
-    {
-        cout << "DONE. " << endl
-             << "  Time = " << runTime << " seconds. GFlops = " 
-             << gFlops << endl;
-    }
+        Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s)");
     if( print )
-    {
-        ostringstream msg;
-        msg << "C := " << alpha << " A B + " << beta << " C";
-        Print( C, msg.str() );
-    }
+        Print( C, BuildString("C := ",alpha," A B + ",beta," C") );
     if( correctness )
         TestCorrectness( orientA, orientB, alpha, A, B, beta, COrig, C, print );
     
@@ -148,7 +126,7 @@ void TestGemm
     {
         // Test the variant of Gemm for panel-panel dot products
         if( g.Rank() == 0 )
-            cout << "Dot Product Algorithm:" << endl;
+            Output("Dot Product Algorithm:");
         C = COrig;
         mpi::Barrier( g.Comm() );
         startTime = mpi::Time();
@@ -156,19 +134,11 @@ void TestGemm
         mpi::Barrier( g.Comm() );
         runTime = mpi::Time() - startTime;
         realGFlops = 2.*double(m)*double(n)*double(k)/(1.e9*runTime);
-        gFlops = ( IsComplex<T>::val ? 4*realGFlops : realGFlops );
+        gFlops = ( IsComplex<T>::value ? 4*realGFlops : realGFlops );
         if( g.Rank() == 0 )
-        {
-            cout << "DONE. " << endl
-                 << "  Time = " << runTime << " seconds. GFlops = " 
-                 << gFlops << endl;
-        }
+            Output("  Finished in ",runTime," seconds (",gFlops," GFlop/s)");
         if( print )
-        {
-            ostringstream msg;
-            msg << "C := " << alpha << " A B + " << beta << " C";
-            Print( C, msg.str() );
-        }
+            Print( C, BuildString("C := ",alpha," A B + ",beta," C") );
         if( correctness )
             TestCorrectness
             ( orientA, orientB, alpha, A, B, beta, COrig, C, print );
@@ -178,7 +148,7 @@ void TestGemm
 int 
 main( int argc, char* argv[] )
 {
-    Initialize( argc, argv );
+    Environment env( argc, argv );
     mpi::Comm comm = mpi::COMM_WORLD;
     const Int commRank = mpi::Rank( comm );
     const Int commSize = mpi::Size( comm );
@@ -214,16 +184,16 @@ main( int argc, char* argv[] )
 
         ComplainIfDebug();
         if( commRank == 0 )
-            cout << "Will test Gemm" << transA << transB << endl;
+            Output("Will test Gemm",transA,transB);
 
         if( commRank == 0 )
-            cout << "Testing with doubles:" << endl;
+            Output("Testing with doubles:");
         TestGemm<double>
         ( orientA, orientB, m, n, k, 3., 4., g, print, correctness,
           colAlignA, rowAlignA, colAlignB, rowAlignB, colAlignC, rowAlignC );
 
         if( commRank == 0 )
-            cout << "Testing with double-precision complex:" << endl;
+            Output("Testing with Complex<double>");
         TestGemm<Complex<double>>
         ( orientA, orientB, m, n, k, 
           Complex<double>(3), Complex<double>(4), g, print, correctness,
@@ -231,6 +201,5 @@ main( int argc, char* argv[] )
     }
     catch( exception& e ) { ReportException(e); }
 
-    Finalize();
     return 0;
 }

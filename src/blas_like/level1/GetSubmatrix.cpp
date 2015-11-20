@@ -160,7 +160,7 @@ void GetSubmatrix
         if( i >= I.end )
             break;
         else if( i >= I.beg && j >= J.beg && j < J.end )
-            ASub.QueueUpdate( i-I.beg, j-J.beg, A.Value(e), false );
+            ASub.QueueUpdate( i-I.beg, j-J.beg, A.Value(e) );
     }
     ASub.ProcessQueues();
 }
@@ -428,7 +428,7 @@ void GetSubmatrix
     ASub.Reserve( numUpdates );
     if( A.RedundantRank() == 0 )
     {
-        for( size_t iSub=0; iSub<I.size(); ++iSub )
+        for( Int iSub=0; iSub<mSub; ++iSub )
         {
             const Int i = I[iSub];
             if( A.IsLocalRow(i) )
@@ -483,13 +483,13 @@ void GetSubmatrix
     ASub.Reserve( numUpdates );
     if( A.RedundantRank() == 0 )
     {
-        for( size_t iSub=0; iSub<mSub; ++iSub )
+        for( Int iSub=0; iSub<mSub; ++iSub )
         {
             const Int i = I[iSub];
             if( A.IsLocalRow(i) )
             {
                 const Int iLoc = A.LocalRow(i);
-                for( size_t jSub=0; jSub<nSub; ++jSub )
+                for( Int jSub=0; jSub<nSub; ++jSub )
                 {
                     const Int j = J[jSub];
                     if( A.IsLocalCol(j) )
