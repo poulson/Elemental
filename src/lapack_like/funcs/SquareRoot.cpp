@@ -22,15 +22,18 @@ namespace square_root {
 template<typename F>
 inline void
 NewtonStep
-( const Matrix<F>& A, const Matrix<F>& X, Matrix<F>& XNew, Matrix<F>& XTmp )
+( const Matrix<F>& A,
+  const Matrix<F>& X,
+        Matrix<F>& XNew,
+        Matrix<F>& XTmp )
 {
     DEBUG_ONLY(CSE cse("square_root::NewtonStep"))
     // XNew := inv(X) A
     XTmp = X;
-    Matrix<Int> p;
-    LU( XTmp, p );
+    Permutation P;
+    LU( XTmp, P );
     XNew = A;
-    lu::SolveAfter( NORMAL, XTmp, p, XNew );
+    lu::SolveAfter( NORMAL, XTmp, P, XNew );
 
     // XNew := 1/2 ( X + XNew )
     typedef Base<F> Real;
@@ -40,16 +43,18 @@ NewtonStep
 template<typename F>
 inline void
 NewtonStep
-( const DistMatrix<F>& A, const DistMatrix<F>& X, 
-  DistMatrix<F>& XNew, DistMatrix<F>& XTmp )
+( const DistMatrix<F>& A,
+  const DistMatrix<F>& X, 
+        DistMatrix<F>& XNew,
+        DistMatrix<F>& XTmp )
 {
     DEBUG_ONLY(CSE cse("square_root::NewtonStep"))
     // XNew := inv(X) A
     XTmp = X;
-    DistMatrix<Int,VC,STAR> p(X.Grid());
-    LU( XTmp, p );
+    DistPermutation P(X.Grid());
+    LU( XTmp, P );
     XNew = A;
-    lu::SolveAfter( NORMAL, XTmp, p, XNew );
+    lu::SolveAfter( NORMAL, XTmp, P, XNew );
 
     // XNew := 1/2 ( X + XNew )
     typedef Base<F> Real;
@@ -102,8 +107,8 @@ Newton( ElementalMatrix<F>& APre, const SquareRootCtrl<Base<F>>& ctrl )
 {
     DEBUG_ONLY(CSE cse("square_root::Newton"))
 
-    auto APtr = ReadWriteProxy<F,MC,MR>( &APre );
-    auto& A = *APtr;
+    DistMatrixReadWriteProxy<F,F,MC,MR> AProx( APre );
+    auto& A = AProx.Get();
 
     typedef Base<F> Real;
     const Grid& g = A.Grid();
@@ -162,7 +167,9 @@ void SquareRoot( ElementalMatrix<F>& A, const SquareRootCtrl<Base<F>> ctrl )
 
 template<typename F>
 void HPSDSquareRoot
-( UpperOrLower uplo, Matrix<F>& A, const HermitianEigCtrl<F>& ctrl )
+( UpperOrLower uplo,
+  Matrix<F>& A,
+  const HermitianEigCtrl<F>& ctrl )
 {
     DEBUG_ONLY(CSE cse("HPSDSquareRoot"))
     typedef Base<F> Real;
@@ -209,13 +216,14 @@ void HPSDSquareRoot
 
 template<typename F>
 void HPSDSquareRoot
-( UpperOrLower uplo, ElementalMatrix<F>& APre, 
+( UpperOrLower uplo,
+  ElementalMatrix<F>& APre, 
   const HermitianEigCtrl<F>& ctrl )
 {
     DEBUG_ONLY(CSE cse("HPSDSquareRoot"))
 
-    auto APtr = ReadWriteProxy<F,MC,MR>( &APre );
-    auto& A = *APtr;
+    DistMatrixReadWriteProxy<F,F,MC,MR> AProx( APre );
+    auto& A = AProx.Get();
 
     // Get the EVD of A
     typedef Base<F> Real;

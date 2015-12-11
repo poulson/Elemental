@@ -19,20 +19,20 @@ template<typename F>
 Int PivotedQR( Matrix<F>& A, Base<F> tau, Int numSteps, bool relative )
 {
     DEBUG_ONLY(
-        CSE cse("svt::PivotedQR");
-        if( numSteps > Min(A.Height(),A.Width()) )
-            LogicError("number of steps is too large");
+      CSE cse("svt::PivotedQR");
+      if( numSteps > Min(A.Height(),A.Width()) )
+          LogicError("number of steps is too large");
     )
     typedef Base<F> Real;
     const Int m = A.Height();
     const Int n = A.Width();
     Matrix<F> ACopy( A ), t;
     Matrix<Real> d;
-    Matrix<Int> p;
+    Permutation Omega;
     QRCtrl<Base<F>> qrCtrl;
     qrCtrl.boundRank = true;
     qrCtrl.maxRank = numSteps;
-    QR( ACopy, t, d, p, qrCtrl );
+    QR( ACopy, t, d, Omega, qrCtrl );
     auto ACopyUpper = ACopy( IR(0,numSteps), IR(0,n) );
 
     Matrix<F> U( ACopyUpper ), V;
@@ -47,7 +47,7 @@ Int PivotedQR( Matrix<F>& A, Base<F> tau, Int numSteps, bool relative )
 
     SoftThreshold( s, tau, relative );
     DiagonalScale( RIGHT, NORMAL, s, U );
-    InversePermuteRows( V, p );
+    Omega.PermuteRows( V );
     Matrix<F> RThresh;
     Gemm( NORMAL, ADJOINT, F(1), U, V, RThresh );
 
@@ -64,13 +64,13 @@ Int PivotedQR
 ( ElementalMatrix<F>& APre, Base<F> tau, Int numSteps, bool relative )
 {
     DEBUG_ONLY(
-        CSE cse("svt::PivotedQR");
-        if( numSteps > Min(APre.Height(),APre.Width()) )
-            LogicError("number of steps is too large");
+      CSE cse("svt::PivotedQR");
+      if( numSteps > Min(APre.Height(),APre.Width()) )
+          LogicError("number of steps is too large");
     )
 
-    auto APtr = ReadWriteProxy<F,MC,MR>( &APre );
-    auto& A = *APtr;
+    DistMatrixReadWriteProxy<F,F,MC,MR> AProx( APre );
+    auto& A = AProx.Get();
 
     typedef Base<F> Real;
     const Int m = A.Height();
@@ -79,11 +79,11 @@ Int PivotedQR
     DistMatrix<F> ACopy( A );
     DistMatrix<F,MD,STAR> t(g);
     DistMatrix<Real,MD,STAR> d(g);
-    DistMatrix<Int,VR,STAR> p(g);
+    DistPermutation Omega(g);
     QRCtrl<Base<F>> qrCtrl;
     qrCtrl.boundRank = true;
     qrCtrl.maxRank = numSteps;
-    QR( ACopy, t, d, p, qrCtrl );
+    QR( ACopy, t, d, Omega, qrCtrl );
     auto ACopyUpper = ACopy( IR(0,numSteps), IR(0,n) );
 
     DistMatrix<F> U( ACopyUpper ), V(g);
@@ -98,7 +98,7 @@ Int PivotedQR
 
     SoftThreshold( s, tau, relative );
     DiagonalScale( RIGHT, NORMAL, s, U );
-    InversePermuteRows( V, p );
+    Omega.PermuteRows( V );
     DistMatrix<F> RThresh(g);
     Gemm( NORMAL, ADJOINT, F(1), U, V, RThresh );
 

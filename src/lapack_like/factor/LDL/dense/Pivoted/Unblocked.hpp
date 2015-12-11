@@ -52,28 +52,30 @@ Select( const DistMatrix<F>& A, LDLPivotType pivotType, Base<F> gamma )
 template<typename F>
 inline void
 Unblocked
-( Matrix<F>& A, Matrix<F>& dSub, Matrix<Int>& p, bool conjugate=false,
-  LDLPivotType pivotType=BUNCH_KAUFMAN_A, Base<F> gamma=0 )
+( Matrix<F>& A,
+  Matrix<F>& dSub,
+  Permutation& P,
+  bool conjugate=false,
+  LDLPivotType pivotType=BUNCH_KAUFMAN_A,
+  Base<F> gamma=0 )
 {
     DEBUG_ONLY(
-        CSE cse("ldl::pivot::Unblocked");
-        if( A.Height() != A.Width() )
-            LogicError("A must be square");
+      CSE cse("ldl::pivot::Unblocked");
+      if( A.Height() != A.Width() )
+          LogicError("A must be square");
     )
     const Int n = A.Height();
+
+    P.MakeIdentity( n );
+    P.ReserveSwaps( n );
+
     if( n == 0 )
     {
         dSub.Resize( 0, 1 );
-        p.Resize( 0, 1 );
         return;
     }
     Zeros( dSub, n-1, 1 );
 
-    // Initialize the permutation to the identity
-    p.Resize( n, 1 );
-    for( Int j=0; j<n; ++j )
-        p.Set( j, 0, j );
-     
     Matrix<F> Y21;
 
     Int k=0;
@@ -95,7 +97,7 @@ Unblocked
         {
             const Int from = k + pivot.from[l];
             SymmetricSwap( LOWER, A, k+l, from, conjugate );
-            RowSwap( p, k+l, from );
+            P.RowSwap( k+l, from );
         }
 
         // Update trailing submatrix and store pivots
@@ -132,28 +134,29 @@ Unblocked
 template<typename F>
 inline void
 Unblocked
-( ElementalMatrix<F>& APre, ElementalMatrix<F>& dSub, 
-  ElementalMatrix<Int>& p, bool conjugate=false, 
-  LDLPivotType pivotType=BUNCH_KAUFMAN_A, Base<F> gamma=0 )
+( ElementalMatrix<F>& APre,
+  ElementalMatrix<F>& dSub, 
+  DistPermutation& P,
+  bool conjugate=false, 
+  LDLPivotType pivotType=BUNCH_KAUFMAN_A,
+  Base<F> gamma=0 )
 {
     DEBUG_ONLY(
-        CSE cse("ldl::pivot::Unblocked");
-        if( APre.Height() != APre.Width() )
-            LogicError("A must be square");
-        AssertSameGrids( APre, dSub, p );
+      CSE cse("ldl::pivot::Unblocked");
+      if( APre.Height() != APre.Width() )
+          LogicError("A must be square");
+      AssertSameGrids( APre, dSub );
     )
     const Int n = APre.Height();
     const Grid& g = APre.Grid();
 
+    P.MakeIdentity( n );
+    P.ReserveSwaps( n );
+
     Zeros( dSub, n-1, 1 );
-    p.Resize( n, 1 );
 
-    auto APtr = ReadWriteProxy<F,MC,MR>( &APre );
-    auto& A = *APtr;
-
-    // Initialize the permutation to the identity
-    for( Int iLoc=0; iLoc<p.LocalHeight(); ++iLoc )
-        p.SetLocal( iLoc, 0, p.GlobalRow(iLoc) );
+    DistMatrixReadWriteProxy<F,F,MC,MR> AProx( APre );
+    auto& A = AProx.Get();
 
     DistMatrix<F> Y21(g);
     DistMatrix<F,STAR,STAR> D11_STAR_STAR(g);
@@ -177,7 +180,7 @@ Unblocked
         {
             const Int from = k + pivot.from[l];
             SymmetricSwap( LOWER, A, k+l, from, conjugate );
-            RowSwap( p, k+l, from );
+            P.RowSwap( k+l, from );
         }
 
 

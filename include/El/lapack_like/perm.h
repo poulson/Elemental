@@ -47,305 +47,161 @@ EL_EXPORT ElError ElPermutationMetaScaleUp
 EL_EXPORT ElError ElPermutationMetaScaleDown
 ( ElPermutationMeta* meta, ElInt length );
 
-/* Apply column pivots
-   =================== */
-EL_EXPORT ElError ElApplyColPivots_i
-( ElMatrix_i A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivots_s
-( ElMatrix_s A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivots_d
-( ElMatrix_d A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivots_c
-( ElMatrix_c A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivots_z
-( ElMatrix_z A, ElConstMatrix_i pivots, ElInt offset );
+/* Anonymous placeholders for Permutation and DistPermutation
+   ---------------------------------------------------------- */
+typedef struct ElPermutationDummy* ElPermutation;
+typedef struct ElDistPermutationDummy* ElDistPermutation;
 
-EL_EXPORT ElError ElApplyColPivotsDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivotsDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivotsDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivotsDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyColPivotsDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i pivots, ElInt offset );
+typedef const struct ElPermutationDummy* ElConstPermutation;
+typedef const struct ElDistPermutationDummy* ElConstDistPermutation;
 
-/* Apply row pivots
-   ================ */
-EL_EXPORT ElError ElApplyRowPivots_i
-( ElMatrix_i A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivots_s
-( ElMatrix_s A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivots_d
-( ElMatrix_d A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivots_c
-( ElMatrix_c A, ElConstMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivots_z
-( ElMatrix_z A, ElConstMatrix_i pivots, ElInt offset );
+EL_EXPORT ElError ElPermutationCreate( ElPermutation* P );
+EL_EXPORT ElError ElDistPermutationCreate( ElDistPermutation* P, ElGrid g );
 
-EL_EXPORT ElError ElApplyRowPivotsDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivotsDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivotsDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivotsDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i pivots, ElInt offset );
-EL_EXPORT ElError ElApplyRowPivotsDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i pivots, ElInt offset );
+EL_EXPORT ElError ElPermutationDestroy( ElConstPermutation P );
+EL_EXPORT ElError ElDistPermutationDestroy( ElConstDistPermutation P );
 
-/* Apply symmetric pivots
-   ====================== */
-EL_EXPORT ElError ElApplySymmetricPivots_i
-( ElUpperOrLower uplo, ElMatrix_i A, ElConstMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivots_s
-( ElUpperOrLower uplo, ElMatrix_s A, ElConstMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivots_d
-( ElUpperOrLower uplo, ElMatrix_d A, ElConstMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivots_c
-( ElUpperOrLower uplo, ElMatrix_c A, ElConstMatrix_i p, 
+EL_EXPORT ElError ElPermutationEmpty( ElPermutation P );
+EL_EXPORT ElError ElDistPermutationEmpty( ElDistPermutation P );
+
+EL_EXPORT ElError ElPermutationMakeIdentity
+( ElPermutation P, ElInt size );
+EL_EXPORT ElError ElDistPermutationMakeIdentity
+( ElDistPermutation P, ElInt size );
+
+EL_EXPORT ElError ElPermutationReserveSwaps
+( ElPermutation P, ElInt maxSwaps );
+EL_EXPORT ElError ElDistPermutationReserveSwaps
+( ElDistPermutation P, ElInt maxSwaps );
+
+EL_EXPORT ElError ElPermutationMakeArbitrary( ElPermutation P );
+EL_EXPORT ElError ElDistPermutationMakeArbitrary( ElDistPermutation P );
+
+EL_EXPORT ElError ElPermutationRowSwap
+( ElPermutation P, ElInt origin, ElInt dest );
+EL_EXPORT ElError ElDistPermutationRowSwap
+( ElDistPermutation P, ElInt origin, ElInt dest );
+
+EL_EXPORT ElError ElPermutationRowSwapSequence
+( ElPermutation P, ElConstPermutation PAppend, ElInt offset );
+EL_EXPORT ElError ElDistPermutationRowSwapSequence
+( ElDistPermutation P, ElConstDistPermutation PAppend, ElInt offset );
+
+/* TODO: Support for ElMatrix_i and ElDistMatrix_i swap vectors */
+
+EL_EXPORT ElError ElPermutationSetImage
+( ElPermutation P, ElInt origin, ElInt dest );
+EL_EXPORT ElError ElDistPermutationSetImage
+( ElDistPermutation P, ElInt origin, ElInt dest );
+
+EL_EXPORT ElError ElPermutationHeight
+( ElConstPermutation P, ElInt* height );
+EL_EXPORT ElError ElDistPermutationHeight
+( ElConstDistPermutation P, ElInt* height );
+EL_EXPORT ElError ElPermutationWidth
+( ElConstPermutation P, ElInt* width );
+EL_EXPORT ElError ElDistPermutationWidth
+( ElConstDistPermutation P, ElInt* width );
+
+EL_EXPORT ElError ElPermutationParity
+( ElConstPermutation P, bool* parity );
+EL_EXPORT ElError ElDistPermutationParity
+( ElConstDistPermutation P, bool* parity );
+
+EL_EXPORT ElError ElPermutationIsSwapSequence
+( ElConstPermutation P, bool* isSwap );
+EL_EXPORT ElError ElDistPermutationIsSwapSequence
+( ElConstDistPermutation P, bool* isSwap );
+
+EL_EXPORT ElError ElPermutationIsImplicitSwapSequence
+( ElConstPermutation P, bool* isImplicit );
+EL_EXPORT ElError ElDistPermutationIsImplicitSwapSequence
+( ElConstDistPermutation P, bool* isImplicit );
+
+EL_EXPORT ElError ElPermutationPermuteCols_i
+( ElConstPermutation P, ElMatrix_i A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteCols_s
+( ElConstPermutation P, ElMatrix_s A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteCols_d
+( ElConstPermutation P, ElMatrix_d A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteCols_c
+( ElConstPermutation P, ElMatrix_c A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteCols_z
+( ElConstPermutation P, ElMatrix_z A, ElInt offset );
+
+EL_EXPORT ElError ElDistPermutationPermuteCols_i
+( ElConstDistPermutation P, ElDistMatrix_i A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteCols_s
+( ElConstDistPermutation P, ElDistMatrix_s A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteCols_d
+( ElConstDistPermutation P, ElDistMatrix_d A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteCols_c
+( ElConstDistPermutation P, ElDistMatrix_c A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteCols_z
+( ElConstDistPermutation P, ElDistMatrix_z A, ElInt offset );
+
+EL_EXPORT ElError ElPermutationPermuteRows_i
+( ElConstPermutation P, ElMatrix_i A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteRows_s
+( ElConstPermutation P, ElMatrix_s A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteRows_d
+( ElConstPermutation P, ElMatrix_d A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteRows_c
+( ElConstPermutation P, ElMatrix_c A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteRows_z
+( ElConstPermutation P, ElMatrix_z A, ElInt offset );
+
+EL_EXPORT ElError ElDistPermutationPermuteRows_i
+( ElConstDistPermutation P, ElDistMatrix_i A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteRows_s
+( ElConstDistPermutation P, ElDistMatrix_s A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteRows_d
+( ElConstDistPermutation P, ElDistMatrix_d A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteRows_c
+( ElConstDistPermutation P, ElDistMatrix_c A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteRows_z
+( ElConstDistPermutation P, ElDistMatrix_z A, ElInt offset );
+
+EL_EXPORT ElError ElPermutationPermuteSymmetrically_i
+( ElConstPermutation P, ElUpperOrLower uplo, ElMatrix_i A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteSymmetrically_s
+( ElConstPermutation P, ElUpperOrLower uplo, ElMatrix_s A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteSymmetrically_d
+( ElConstPermutation P, ElUpperOrLower uplo, ElMatrix_d A, ElInt offset );
+EL_EXPORT ElError ElPermutationPermuteSymmetrically_c
+( ElConstPermutation P, ElUpperOrLower uplo, ElMatrix_c A,
   bool conjugate, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivots_z
-( ElUpperOrLower uplo, ElMatrix_z A, ElConstMatrix_i p, 
+EL_EXPORT ElError ElPermutationPermuteSymmetrically_z
+( ElConstPermutation P, ElUpperOrLower uplo, ElMatrix_z A,
   bool conjugate, ElInt offset );
 
-EL_EXPORT ElError ElApplySymmetricPivotsDist_i
-( ElUpperOrLower uplo, ElDistMatrix_i A, ElConstDistMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivotsDist_s
-( ElUpperOrLower uplo, ElDistMatrix_s A, ElConstDistMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivotsDist_d
-( ElUpperOrLower uplo, ElDistMatrix_d A, ElConstDistMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivotsDist_c
-( ElUpperOrLower uplo, ElDistMatrix_c A, ElConstDistMatrix_i p, 
+EL_EXPORT ElError ElDistPermutationPermuteSymmetrically_i
+( ElConstDistPermutation P,
+  ElUpperOrLower uplo, ElDistMatrix_i A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteSymmetrically_s
+( ElConstDistPermutation P,
+  ElUpperOrLower uplo, ElDistMatrix_s A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteSymmetrically_d
+( ElConstDistPermutation P,
+  ElUpperOrLower uplo, ElDistMatrix_d A, ElInt offset );
+EL_EXPORT ElError ElDistPermutationPermuteSymmetrically_c
+( ElConstDistPermutation P,
+  ElUpperOrLower uplo, ElDistMatrix_c A,
   bool conjugate, ElInt offset );
-EL_EXPORT ElError ElApplySymmetricPivotsDist_z
-( ElUpperOrLower uplo, ElDistMatrix_z A, ElConstDistMatrix_i p, 
-  bool conjugate, ElInt offset );
-
-EL_EXPORT ElError ElApplyInverseSymmetricPivots_i
-( ElUpperOrLower uplo, ElMatrix_i A, ElConstMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivots_s
-( ElUpperOrLower uplo, ElMatrix_s A, ElConstMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivots_d
-( ElUpperOrLower uplo, ElMatrix_d A, ElConstMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivots_c
-( ElUpperOrLower uplo, ElMatrix_c A, ElConstMatrix_i p, 
-  bool conjugate, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivots_z
-( ElUpperOrLower uplo, ElMatrix_z A, ElConstMatrix_i p, 
+EL_EXPORT ElError ElDistPermutationPermuteSymmetrically_z
+( ElConstDistPermutation P,
+  ElUpperOrLower uplo, ElDistMatrix_z A,
   bool conjugate, ElInt offset );
 
-EL_EXPORT ElError ElApplyInverseSymmetricPivotsDist_i
-( ElUpperOrLower uplo, ElDistMatrix_i A, ElConstDistMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivotsDist_s
-( ElUpperOrLower uplo, ElDistMatrix_s A, ElConstDistMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivotsDist_d
-( ElUpperOrLower uplo, ElDistMatrix_d A, ElConstDistMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivotsDist_c
-( ElUpperOrLower uplo, ElDistMatrix_c A, ElConstDistMatrix_i p, 
-  bool conjugate, ElInt offset );
-EL_EXPORT ElError ElApplyInverseSymmetricPivotsDist_z
-( ElUpperOrLower uplo, ElDistMatrix_z A, ElConstDistMatrix_i p, 
-  bool conjugate, ElInt offset );
+EL_EXPORT ElError ElPermutationExplicitVector
+( ElConstPermutation P, ElMatrix_i PVec );
+EL_EXPORT ElError ElDistPermutationExplicitVector
+( ElConstDistPermutation P, ElDistMatrix_i PVec );
 
-/* Explicit permutation
-   ==================== */
-EL_EXPORT ElError ElExplicitPermutation( ElConstMatrix_i p, ElMatrix_i P );
-EL_EXPORT ElError ElExplicitPermutationDist
-( ElConstDistMatrix_i p, ElDistMatrix_i P );
-
-/* Invert permutation
-   ================== */
-EL_EXPORT ElError ElInvertPermutation( ElConstMatrix_i p, ElMatrix_i pInv );
-EL_EXPORT ElError ElInvertPermutationDist
-( ElConstDistMatrix_i p, ElDistMatrix_i pInv );
-
-/* Parity of a permutation
-   ======================= */
-EL_EXPORT ElError ElPermutationParity( ElConstMatrix_i p, bool* parity );
-EL_EXPORT ElError ElPermutationParityDist
-( ElConstDistMatrix_i p, bool* parity );
-
-/* Permute columns
-   =============== */
-
-/* With only the forward permutation vector provided
-   ------------------------------------------------- */
-EL_EXPORT ElError ElPermuteCols_i( ElMatrix_i A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteCols_s( ElMatrix_s A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteCols_d( ElMatrix_d A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteCols_c( ElMatrix_c A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteCols_z( ElMatrix_z A, ElConstMatrix_i p );
-
-EL_EXPORT ElError ElPermuteColsDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteColsDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteColsDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteColsDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteColsDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i p );
-
-EL_EXPORT ElError ElInversePermuteCols_i( ElMatrix_i A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteCols_s( ElMatrix_s A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteCols_d( ElMatrix_d A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteCols_c( ElMatrix_c A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteCols_z( ElMatrix_z A, ElConstMatrix_i p );
-
-EL_EXPORT ElError ElInversePermuteColsDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteColsDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteColsDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteColsDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteColsDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i p );
-
-/* With the forward and inverse permutation vectors provided
-   --------------------------------------------------------- */
-EL_EXPORT ElError ElPermuteColsBoth_i
-( ElMatrix_i A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBoth_s
-( ElMatrix_s A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBoth_d
-( ElMatrix_d A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBoth_c
-( ElMatrix_c A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBoth_z
-( ElMatrix_z A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-
-EL_EXPORT ElError ElPermuteColsBothDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBothDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBothDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBothDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteColsBothDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-
-/* With the pivot plan provided
-   ---------------------------- */
-EL_EXPORT ElError ElPermuteColsMetaDist_i
-( ElDistMatrix_i A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteColsMetaDist_s
-( ElDistMatrix_s A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteColsMetaDist_d
-( ElDistMatrix_d A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteColsMetaDist_c
-( ElDistMatrix_c A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteColsMetaDist_z
-( ElDistMatrix_z A, const ElPermutationMeta* meta );
-
-/* Permute rows
-   ============ */
-
-/* With only the forward permutation vector provided
-   ------------------------------------------------- */
-EL_EXPORT ElError ElPermuteRows_i( ElMatrix_i A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteRows_s( ElMatrix_s A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteRows_d( ElMatrix_d A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteRows_c( ElMatrix_c A, ElConstMatrix_i p );
-EL_EXPORT ElError ElPermuteRows_z( ElMatrix_z A, ElConstMatrix_i p );
-
-EL_EXPORT ElError ElPermuteRowsDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteRowsDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteRowsDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteRowsDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElPermuteRowsDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i p );
-
-EL_EXPORT ElError ElInversePermuteRows_i( ElMatrix_i A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRows_s( ElMatrix_s A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRows_d( ElMatrix_d A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRows_c( ElMatrix_c A, ElConstMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRows_z( ElMatrix_z A, ElConstMatrix_i p );
-
-EL_EXPORT ElError ElInversePermuteRowsDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRowsDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRowsDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRowsDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i p );
-EL_EXPORT ElError ElInversePermuteRowsDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i p );
-
-/* With the forward and inverse permutation vectors provided
-   --------------------------------------------------------- */
-EL_EXPORT ElError ElPermuteRowsBoth_i
-( ElMatrix_i A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBoth_s
-( ElMatrix_s A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBoth_d
-( ElMatrix_d A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBoth_c
-( ElMatrix_c A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBoth_z
-( ElMatrix_z A, ElConstMatrix_i p, ElConstMatrix_i pInv );
-
-EL_EXPORT ElError ElPermuteRowsBothDist_i
-( ElDistMatrix_i A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBothDist_s
-( ElDistMatrix_s A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBothDist_d
-( ElDistMatrix_d A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBothDist_c
-( ElDistMatrix_c A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-EL_EXPORT ElError ElPermuteRowsBothDist_z
-( ElDistMatrix_z A, ElConstDistMatrix_i p, ElConstDistMatrix_i pInv );
-
-/* With the pivot plan provided
-   ---------------------------- */
-EL_EXPORT ElError ElPermuteRowsMetaDist_i
-( ElDistMatrix_i A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteRowsMetaDist_s
-( ElDistMatrix_s A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteRowsMetaDist_d
-( ElDistMatrix_d A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteRowsMetaDist_c
-( ElDistMatrix_c A, const ElPermutationMeta* meta );
-EL_EXPORT ElError ElPermuteRowsMetaDist_z
-( ElDistMatrix_z A, const ElPermutationMeta* meta );
-
-/* Pivot parity
-   ============ */
-EL_EXPORT ElError ElPivotParity
-( ElConstMatrix_i p, ElInt pivotOffset, bool* parity );
-EL_EXPORT ElError ElPivotParityDist
-( ElConstDistMatrix_i p, ElInt pivotOffset, bool* parity );
-
-/* Convert a pivot sequence to partial permutation vector
-   ====================================================== */
-EL_EXPORT ElError ElPivotsToPartialPermutation
-( ElConstMatrix_i pivots, ElMatrix_i p, ElMatrix_i pInv, 
-  ElInt offset );
-EL_EXPORT ElError ElPivotsToPartialPermutationDist
-( ElConstDistMatrix_i pivots, ElDistMatrix_i p, ElDistMatrix_i pInv, 
-  ElInt offset );
-
-/* Convert a pivot sequence to a permutation vector
-   ================================================ */
-EL_EXPORT ElError ElPivotsToPermutation
-( ElConstMatrix_i pivots, ElMatrix_i p, ElInt offset );
-EL_EXPORT ElError ElPivotsToPermutationDist
-( ElConstDistMatrix_i pivots, ElDistMatrix_i p, ElInt offset );
-
-EL_EXPORT ElError ElPivotsToInversePermutation
-( ElConstMatrix_i pivots, ElMatrix_i pInv, ElInt offset );
-EL_EXPORT ElError ElPivotsToInversePermutationDist
-( ElConstDistMatrix_i pivots, ElDistMatrix_i pInv, ElInt offset );
+EL_EXPORT ElError ElPermutationExplicitMatrix
+( ElConstPermutation P, ElMatrix_i PMat );
+EL_EXPORT ElError ElDistPermutationExplicitMatrix
+( ElConstDistPermutation P, ElDistMatrix_i PMat );
 
 #ifdef __cplusplus
 } // extern "C"

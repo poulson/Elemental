@@ -121,7 +121,12 @@ void Matrix<T>::Resize( Int height, Int width )
       CSE cse("Matrix::Resize(height,width)");
       AssertValidDimensions( height, width );
       if( FixedSize() && ( height != height_ || width != width_ ) )
-          LogicError("Cannot change the size of this matrix");
+      {
+          DumpCallStack();
+          LogicError
+          ("Cannot resize this matrix from ",
+           height_," x ",width_," to ",height," x ",width);
+      }
       if( Viewing() && ( height > height_ || width > width_ ) )
           LogicError("Cannot increase the size of this matrix");
     )
@@ -136,7 +141,13 @@ void Matrix<T>::Resize( Int height, Int width, Int ldim )
       AssertValidDimensions( height, width, ldim );
       if( FixedSize() && 
           ( height != height_ || width != width_ || ldim != ldim_ ) )
-          LogicError("Cannot change the size of this matrix");
+      {
+          DumpCallStack();
+          LogicError
+          ("Cannot resize this matrix from ",
+           height_," x ",width_," (",ldim_,") to ",
+           height," x ",width," (",ldim,")");
+      }
       if( Viewing() && (height > height_ || width > width_ || ldim != ldim_) )
           LogicError("Cannot increase the size of this matrix");
     )
@@ -584,7 +595,7 @@ void Matrix<T>::LockedAttach_
     width_ = width;
     ldim_ = ldim;
     data_ = const_cast<T*>(buffer);
-    viewType_ = (El::ViewType)( viewType_ | VIEW );
+    viewType_ = (El::ViewType)( viewType_ | LOCKED_VIEW );
 }
 
 template<typename T>

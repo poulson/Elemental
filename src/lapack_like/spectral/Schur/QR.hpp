@@ -15,7 +15,10 @@ namespace schur {
 
 template<typename F>
 inline void
-QR( Matrix<F>& A, Matrix<Complex<Base<F>>>& w, bool fullTriangle )
+QR
+( Matrix<F>& A,
+  Matrix<Complex<Base<F>>>& w,
+  bool fullTriangle )
 {
     DEBUG_ONLY(CSE cse("schur::QR"))
     const Int n = A.Height();
@@ -33,7 +36,9 @@ QR( Matrix<F>& A, Matrix<Complex<Base<F>>>& w, bool fullTriangle )
 template<typename F>
 inline void
 QR
-( Matrix<F>& A, Matrix<Complex<Base<F>>>& w, Matrix<F>& Q, 
+( Matrix<F>& A,
+  Matrix<Complex<Base<F>>>& w,
+  Matrix<F>& Q, 
   bool fullTriangle )
 {
     DEBUG_ONLY(CSE cse("schur::QR"))
@@ -56,7 +61,8 @@ inline void
 QR
 ( DistMatrix<F,MC,MR,BLOCK>& A,
   ElementalMatrix<Complex<Base<F>>>& w,
-  bool fullTriangle, const HessQRCtrl& ctrl )
+  bool fullTriangle,
+  const HessQRCtrl& ctrl )
 {
     DEBUG_ONLY(CSE cse("schur::QR"))
     AssertScaLAPACKSupport();
@@ -176,8 +182,10 @@ QR
 {
     DEBUG_ONLY(CSE cse("schur::QR"))
     AssertScaLAPACKSupport();
-    auto APtr = ReadWriteProxy<F,MC,MR>( &APre );
-    auto& A = *APtr;
+
+    DistMatrixReadWriteProxy<F,F,MC,MR> AProx( APre );
+    auto& A = AProx.Get();
+
 #ifdef EL_HAVE_SCALAPACK
     // Reduce the matrix to upper-Hessenberg form in an elemental form
     DistMatrix<F,STAR,STAR> t( A.Grid() );
@@ -243,8 +251,12 @@ QR
 {
     DEBUG_ONLY(CSE cse("schur::QR"))
     AssertScaLAPACKSupport();
-    auto APtr = ReadWriteProxy<F,MC,MR>( &APre ); auto& A = *APtr;
-    auto QPtr = WriteProxy<F,MC,MR>( &QPre );     auto& Q = *QPtr;
+
+    DistMatrixReadWriteProxy<F,F,MC,MR> AProx( APre );
+    DistMatrixWriteProxy<F,F,MC,MR> QProx( QPre );
+    auto& A = AProx.Get();
+    auto& Q = QProx.Get();
+
 #ifdef EL_HAVE_SCALAPACK
     const Int n = A.Height();
     // Reduce A to upper-Hessenberg form in an element-wise distribution

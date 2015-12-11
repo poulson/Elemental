@@ -9,12 +9,12 @@
 #include "El.hpp"
 using namespace El;
 
-template<typename F,Dist UPerm>
+template<typename F>
 void TestCorrectness
 ( bool pivot,
   UpperOrLower uplo,
   const DistMatrix<F>& A,
-  const DistMatrix<Int,UPerm,STAR>& p,
+  const DistPermutation& p,
   const DistMatrix<F>& AOrig )
 {
     typedef Base<F> Real;
@@ -48,7 +48,7 @@ void TestCorrectness
          "||X - inv(A) X||_F  = ",frobNormE);
 }
 
-template<typename F,Dist UPerm> 
+template<typename F> 
 void TestCholesky
 ( bool testCorrectness,
   bool pivot,
@@ -56,10 +56,11 @@ void TestCholesky
   bool printDiag,
   UpperOrLower uplo,
   Int m,
-  const Grid& g )
+  const Grid& g,
+  bool scalapack )
 {
     DistMatrix<F> A(g), AOrig(g);
-    DistMatrix<Int,UPerm,STAR> p(g);
+    DistPermutation p(g);
 
     HermitianUniformSpectrum( A, m, 1e-9, 10 );
     if( testCorrectness )
@@ -68,13 +69,18 @@ void TestCholesky
         Print( A, "A" );
 
     if( g.Rank() == 0 )
-        Output("  Starting Cholesky...");
+    {
+        if( scalapack && !pivot )
+            Output("  ScaLAPACK Cholesky (including round-trip conversion)...");
+        else
+            Output("  Elemental Cholesky...");
+    }
     mpi::Barrier( g.Comm() );
     const double startTime = mpi::Time();
     if( pivot )
         Cholesky( uplo, A, p );
     else
-        Cholesky( uplo, A );
+        Cholesky( uplo, A, scalapack );
     mpi::Barrier( g.Comm() );
     const double runTime = mpi::Time() - startTime;
     const double realGFlops = 1./3.*Pow(double(m),3.)/(1.e9*runTime);
@@ -85,7 +91,11 @@ void TestCholesky
     { 
         Print( A, "A after factorization" );
         if( pivot )
-            Print( p, "p" );
+        {
+            DistMatrix<Int,VC,STAR> P(g);
+            p.ExplicitMatrix( P );
+            Print( P, "P" );
+        }
     }
     if( printDiag )
         Print( GetRealPartOfDiagonal(A), "diag(A)" );
@@ -114,6 +124,11 @@ main( int argc, char* argv[] )
             ("--correctness","test correctness?",true);
         const bool print = Input("--print","print matrices?",false);
         const bool printDiag = Input("--printDiag","print diag of fact?",false);
+#ifdef EL_HAVE_SCALAPACK
+        const bool scalapack = Input("--scalapack","test ScaLAPACK?",true);
+#else
+        const bool scalapack = false;
+#endif
         ProcessInput();
         PrintInputReport();
 
@@ -131,13 +146,19 @@ main( int argc, char* argv[] )
 
         if( commRank == 0 )
             Output("Testing with doubles:");
-        TestCholesky<double,VC>
-        ( testCorrectness, pivot, print, printDiag, uplo, m, g );
+        if( scalapack )
+            TestCholesky<double>
+            ( testCorrectness, pivot, print, printDiag, uplo, m, g, true );
+        TestCholesky<double>
+        ( testCorrectness, pivot, print, printDiag, uplo, m, g, false );
 
         if( commRank == 0 )
             Output("Testing with double-precision complex:");
-        TestCholesky<Complex<double>,VC>
-        ( testCorrectness, pivot, print, printDiag, uplo, m, g );
+        if( scalapack )
+            TestCholesky<Complex<double>>
+            ( testCorrectness, pivot, print, printDiag, uplo, m, g, true );
+        TestCholesky<Complex<double>>
+        ( testCorrectness, pivot, print, printDiag, uplo, m, g, false );
     }
     catch( exception& e ) { ReportException(e); }
 

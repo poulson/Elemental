@@ -3,15 +3,19 @@ using namespace El;
 
 int main( int argc, char* argv[] )
 {
-    Initialize( argc, argv );
+    Environment env( argc, argv );
 
-    const Int m = Input("--m","matrix height",100);
-    const Int n = Input("--n","matrix width",100);
+    try
+    {
+        const Int m = Input("--m","matrix height",100);
+        const Int n = Input("--n","matrix width",100);
+        ProcessInput();
 
-    DistMatrix<double> A;
-    Uniform( A, m, n );
-    Display( A, "A" );
+        DistMatrix<double> A;
+        Uniform( A, m, n );
+        Print( A, "A" );
+    }
+    catch( std::exception& e ) { ReportException(e); }
 
-    Finalize();
     return 0;
 }

@@ -20,22 +20,23 @@ namespace El {
 template<typename F>
 void Cholesky( UpperOrLower uplo, Matrix<F>& A );
 template<typename F>
-void Cholesky( UpperOrLower uplo, ElementalMatrix<F>& A );
+void Cholesky
+( UpperOrLower uplo, AbstractDistMatrix<F>& A, bool scalapack=false );
 template<typename F>
 void Cholesky( UpperOrLower uplo, DistMatrix<F,STAR,STAR>& A );
 
 template<typename F>
 void ReverseCholesky( UpperOrLower uplo, Matrix<F>& A );
 template<typename F>
-void ReverseCholesky( UpperOrLower uplo, ElementalMatrix<F>& A );
+void ReverseCholesky( UpperOrLower uplo, AbstractDistMatrix<F>& A );
 template<typename F>
 void ReverseCholesky( UpperOrLower uplo, DistMatrix<F,STAR,STAR>& A );
 
 template<typename F>
-void Cholesky( UpperOrLower uplo, Matrix<F>& A, Matrix<Int>& p );
+void Cholesky( UpperOrLower uplo, Matrix<F>& A, Permutation& P );
 template<typename F>
 void Cholesky
-( UpperOrLower uplo, ElementalMatrix<F>& A, ElementalMatrix<Int>& p );
+( UpperOrLower uplo, AbstractDistMatrix<F>& A, DistPermutation& P );
 
 template<typename F>
 void CholeskyMod
@@ -46,14 +47,14 @@ void CholeskyMod
 template<typename F>
 void CholeskyMod
 ( UpperOrLower uplo,
-  ElementalMatrix<F>& T, 
+  AbstractDistMatrix<F>& T,
   Base<F> alpha,
-  ElementalMatrix<F>& V );
+  AbstractDistMatrix<F>& V );
 
 template<typename F>
 void HPSDCholesky( UpperOrLower uplo, Matrix<F>& A );
 template<typename F>
-void HPSDCholesky( UpperOrLower uplo, ElementalMatrix<F>& A );
+void HPSDCholesky( UpperOrLower uplo, AbstractDistMatrix<F>& A );
 
 namespace cholesky {
 
@@ -67,23 +68,23 @@ template<typename F>
 void SolveAfter
 ( UpperOrLower uplo,
   Orientation orientation,
-  const ElementalMatrix<F>& A,
-        ElementalMatrix<F>& B );
+  const AbstractDistMatrix<F>& A,
+        AbstractDistMatrix<F>& B );
 
 template<typename F>
 void SolveAfter
 ( UpperOrLower uplo,
   Orientation orientation,
   const Matrix<F>& A,
-  const Matrix<Int>& p, 
+  const Permutation& P, 
         Matrix<F>& B );
 template<typename F>
 void SolveAfter
 ( UpperOrLower uplo,
   Orientation orientation,
-  const ElementalMatrix<F>& A,
-  const ElementalMatrix<Int>& p,
-        ElementalMatrix<F>& B );
+  const AbstractDistMatrix<F>& A,
+  const DistPermutation& P,
+        AbstractDistMatrix<F>& B );
 
 } // namespace cholesky
 
@@ -148,14 +149,14 @@ template<typename F>
 void LDL
 ( Matrix<F>& A,
   Matrix<F>& dSub,
-  Matrix<Int>& p,
+  Permutation& P,
   bool conjugate,
   const LDLPivotCtrl<Base<F>>& ctrl=LDLPivotCtrl<Base<F>>() );
 template<typename F>
 void LDL
 ( ElementalMatrix<F>& A,
   ElementalMatrix<F>& dSub,
-  ElementalMatrix<Int>& p,
+  DistPermutation& P,
   bool conjugate,
   const LDLPivotCtrl<Base<F>>& ctrl=LDLPivotCtrl<Base<F>>() );
 
@@ -163,11 +164,13 @@ void LDL
 // original sparse matrix before calling LDL.
 template<typename F>
 void LDL
-( const ldl::NodeInfo& info, ldl::Front<F>& L, 
+( const ldl::NodeInfo& info,
+        ldl::Front<F>& L, 
   LDLFrontType newType=LDL_2D );
 template<typename F>
 void LDL
-( const ldl::DistNodeInfo& info, ldl::DistFront<F>& L, 
+( const ldl::DistNodeInfo& info,
+        ldl::DistFront<F>& L, 
   LDLFrontType newType=LDL_2D );
 
 namespace ldl {
@@ -202,14 +205,14 @@ template<typename F>
 void MultiplyAfter
 ( const Matrix<F>& A,
   const Matrix<F>& dSub,
-  const Matrix<Int>& p,
+  const Permutation& P,
         Matrix<F>& B,
   bool conjugated );
 template<typename F>
 void MultiplyAfter
 ( const ElementalMatrix<F>& A,
   const ElementalMatrix<F>& dSub,
-  const ElementalMatrix<Int>& p,
+  const DistPermutation& P,
         ElementalMatrix<F>& B,
   bool conjugated );
 
@@ -267,14 +270,14 @@ template<typename F>
 void SolveAfter
 ( const Matrix<F>& A,
   const Matrix<F>& dSub,
-  const Matrix<Int>& p,
+  const Permutation& P,
         Matrix<F>& B,
   bool conjugated );
 template<typename F>
 void SolveAfter
 ( const ElementalMatrix<F>& A,
   const ElementalMatrix<F>& dSub,
-  const ElementalMatrix<Int>& p,
+  const DistPermutation& P,
         ElementalMatrix<F>& B, 
   bool conjugated );
 
@@ -481,29 +484,30 @@ void LU( DistMatrix<F,STAR,STAR>& A );
 // LU with partial pivoting
 // ------------------------
 template<typename F>
-void LU( Matrix<F>& A, Matrix<Int>& rowPiv );
+void LU( Matrix<F>& A, Permutation& P );
 template<typename F>
-void LU( ElementalMatrix<F>& A, ElementalMatrix<Int>& rowPiv );
+void LU( ElementalMatrix<F>& A, DistPermutation& P );
 
 // LU with full pivoting
 // ---------------------
+// P A Q^T = L U
 template<typename F>
 void LU
 ( Matrix<F>& A,
-  Matrix<Int>& rowPiv,
-  Matrix<Int>& colPiv );
+  Permutation& P,
+  Permutation& Q );
 template<typename F>
 void LU
 ( ElementalMatrix<F>& A, 
-  ElementalMatrix<Int>& rowPiv,
-  ElementalMatrix<Int>& colPiv );
+  DistPermutation& P,
+  DistPermutation& Q );
 
 // Rank-one modification of a partially-pivoted LU factorization
 // -------------------------------------------------------------
 template<typename F>
 void LUMod
 (       Matrix<F>& A,
-        Matrix<Int>& rowPerm,
+        Permutation& P,
   const Matrix<F>& u,
   const Matrix<F>& v,
   bool conjugate=true,
@@ -511,7 +515,7 @@ void LUMod
 template<typename F>
 void LUMod
 (       ElementalMatrix<F>& A,
-        ElementalMatrix<Int>& rowPerm,
+        DistPermutation& P,
   const ElementalMatrix<F>& u,
   const ElementalMatrix<F>& v, 
   bool conjugate=true,
@@ -538,13 +542,13 @@ template<typename F>
 void SolveAfter
 ( Orientation orientation,
   const Matrix<F>& A,
-  const Matrix<Int>& rowPiv,
+  const Permutation& P,
         Matrix<F>& B );
 template<typename F>
 void SolveAfter
 ( Orientation orientation,
   const ElementalMatrix<F>& A,
-  const ElementalMatrix<Int>& rowPiv,
+  const DistPermutation& P,
         ElementalMatrix<F>& B );
 
 // Solve linear systems using an implicit fully-pivoted LU factorization
@@ -553,15 +557,15 @@ template<typename F>
 void SolveAfter
 ( Orientation orientation,
   const Matrix<F>& A,
-  const Matrix<Int>& rowPiv,
-  const Matrix<Int>& colPiv,
+  const Permutation& P,
+  const Permutation& Q,
         Matrix<F>& B );
 template<typename F>
 void SolveAfter
 ( Orientation orientation,
   const ElementalMatrix<F>& A,
-  const ElementalMatrix<Int>& rowPiv,
-  const ElementalMatrix<Int>& colPiv,
+  const DistPermutation& P,
+  const DistPermutation& Q,
         ElementalMatrix<F>& B );
 
 } // namespace lu
@@ -688,21 +692,21 @@ void QR
 ( DistMatrix<F,MC,MR,BLOCK>& A,
   DistMatrix<F,MR,STAR,BLOCK>& t );
 
-// Return an implicit representation of (Q,R,P) such that A P ~= Q R
-// -----------------------------------------------------------------
+// Return an implicit representation of (Q,R,Omega) such that A Omega^T ~= Q R
+// ---------------------------------------------------------------------------
 template<typename F>
 void QR
 ( Matrix<F>& A,
   Matrix<F>& t, 
   Matrix<Base<F>>& d,
-  Matrix<Int>& p,
+  Permutation& Omega,
   const QRCtrl<Base<F>>& ctrl=QRCtrl<Base<F>>() );
 template<typename F>
 void QR
 ( ElementalMatrix<F>& A,
   ElementalMatrix<F>& t, 
   ElementalMatrix<Base<F>>& d,
-  ElementalMatrix<Int>& p,
+  DistPermutation& Omega,
   const QRCtrl<Base<F>>& ctrl=QRCtrl<Base<F>>() );
 
 namespace qr {
@@ -753,8 +757,8 @@ void Cholesky( Matrix<F>& A, Matrix<F>& R );
 template<typename F>
 void Cholesky( ElementalMatrix<F>& A, ElementalMatrix<F>& R );
 
-// Return R (with non-negative diagonal) such that A = Q R or A P = Q R
-// --------------------------------------------------------------------
+// Return R (with non-negative diagonal) such that A = Q R or A Omega^T = Q R
+// --------------------------------------------------------------------------
 template<typename F>
 void ExplicitTriang
 ( Matrix<F>& A,
@@ -764,8 +768,8 @@ void ExplicitTriang
 ( ElementalMatrix<F>& A,
   const QRCtrl<Base<F>>& ctrl=QRCtrl<Base<F>>() );
 
-// Return Q such that either A = Q R or A P = Q R
-// ----------------------------------------------
+// Return Q such that either A = Q R or A Omega^T = Q R
+// ----------------------------------------------------
 template<typename F>
 void ExplicitUnitary
 ( Matrix<F>& A,
@@ -777,8 +781,8 @@ void ExplicitUnitary
   bool thinQ=true,
   const QRCtrl<Base<F>>& ctrl=QRCtrl<Base<F>>() );
 
-// Return both Q and R such that A = Q R or A P = Q R
-// --------------------------------------------------
+// Return both Q and R such that A = Q R or A Omega^T = Q R
+// --------------------------------------------------------
 template<typename F>
 void Explicit
 ( Matrix<F>& A,
@@ -792,21 +796,21 @@ void Explicit
   bool thinQ=true,
   const QRCtrl<Base<F>>& ctrl=QRCtrl<Base<F>>() );
 
-// Return (Q,R,P) such that A P = Q R
-// ----------------------------------
+// Return (Q,R,Omega) such that A Omega^T = Q R
+// --------------------------------------------
 // NOTE: Column-pivoting is performed regardless of the value of ctrl.colPiv 
 template<typename F>
 void Explicit
 ( Matrix<F>& A,
   Matrix<F>& R, 
-  Matrix<Int>& P,
+  Matrix<Int>& Omega,
   bool thinQ=true,
   const QRCtrl<Base<F>>& ctrl=QRCtrl<Base<F>>() );
 template<typename F>
 void Explicit
 ( ElementalMatrix<F>& A,
   ElementalMatrix<F>& R, 
-  ElementalMatrix<Int>& P,
+  ElementalMatrix<Int>& Omega,
   bool thinQ=true,
   const QRCtrl<Base<F>>& ctrl=QRCtrl<Base<F>>() );
 
@@ -995,27 +999,27 @@ void ExplicitTriang( ElementalMatrix<F>& A, ElementalMatrix<F>& B );
 template<typename F>
 void ID
 ( const Matrix<F>& A,
-        Matrix<Int>& p, 
+        Permutation& P, 
         Matrix<F>& Z, 
   const QRCtrl<Base<F>> ctrl=QRCtrl<Base<F>>() );
 template<typename F>
 void ID
 ( const ElementalMatrix<F>& A,
-        ElementalMatrix<Int>& p,
+        DistPermutation& P,
         ElementalMatrix<F>& Z, 
   const QRCtrl<Base<F>> ctrl=QRCtrl<Base<F>>() );
 
 template<typename F>
 void ID
 ( Matrix<F>& A,
-  Matrix<Int>& p, 
+  Permutation& P, 
   Matrix<F>& Z,
   const QRCtrl<Base<F>> ctrl=QRCtrl<Base<F>>(), 
   bool canOverwrite=false );
 template<typename F>
 void ID
 ( ElementalMatrix<F>& A,
-  ElementalMatrix<Int>& p,
+  DistPermutation& P,
   ElementalMatrix<F>& Z,
   const QRCtrl<Base<F>> ctrl=QRCtrl<Base<F>>(), 
   bool canOverwrite=false );
@@ -1025,18 +1029,20 @@ void ID
 template<typename F>
 void Skeleton
 ( const Matrix<F>& A,
-        Matrix<Int>& pR,
-        Matrix<Int>& pC,
+        Permutation& PR,
+        Permutation& PC,
         Matrix<F>& Z,
   const QRCtrl<Base<F>> ctrl=QRCtrl<Base<F>>() );
 template<typename F>
 void Skeleton
 ( const ElementalMatrix<F>& A,
-        ElementalMatrix<Int>& pR,
-        ElementalMatrix<Int>& pC,
+        DistPermutation& PR,
+        DistPermutation& PC,
         ElementalMatrix<F>& Z,
   const QRCtrl<Base<F>> ctrl=QRCtrl<Base<F>>() );
 
 } // namespace El
+
+#include "El/lapack_like/factor/qr/ProxyHouseholder.hpp"
 
 #endif // ifndef EL_FACTOR_HPP

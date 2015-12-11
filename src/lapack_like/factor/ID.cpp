@@ -64,13 +64,16 @@ PseudoTrsm( const Matrix<F>& RL, Matrix<F>& RR, Base<F> tol )
 template<typename F>
 inline void
 PseudoTrsm
-( const ElementalMatrix<F>& RLPre, ElementalMatrix<F>& RRPre,
+( const ElementalMatrix<F>& RLPre,
+        ElementalMatrix<F>& RRPre,
   Base<F> tol )
 {
     DEBUG_ONLY(CSE cse("id::PseudoTrsm"))
 
-    auto RLPtr = ReadProxy<F,STAR,STAR>( &RLPre );    auto& RL = *RLPtr;
-    auto RRPtr = ReadWriteProxy<F,STAR,VR>( &RRPre ); auto& RR = *RRPtr;
+    DistMatrixReadProxy<F,F,STAR,STAR> RLProx( RLPre );
+    DistMatrixReadWriteProxy<F,F,STAR,VR> RRProx( RRPre );
+    auto& RL = RLProx.GetLocked();
+    auto& RR = RRProx.Get();
 
     PseudoTrsm( RL.LockedMatrix(), RR.Matrix(), tol );
 }
@@ -83,7 +86,7 @@ template<typename F>
 inline void
 BusingerGolub
 ( Matrix<F>& A,
-  Matrix<Int>& p, 
+  Permutation& Omega,
   Matrix<F>& Z,
   const QRCtrl<Base<F>> ctrl )
 {
@@ -94,7 +97,7 @@ BusingerGolub
     // Perform the pivoted QR factorization
     Matrix<F> t;
     Matrix<Base<F>> d;
-    QR( A, t, d, p, ctrl );
+    QR( A, t, d, Omega, ctrl );
     const Int numSteps = t.Height();
 
     const Real eps = Epsilon<Real>();
@@ -111,20 +114,20 @@ template<typename F>
 inline void
 BusingerGolub
 ( ElementalMatrix<F>& APre,
-  ElementalMatrix<Int>& p, 
+  DistPermutation& Omega,
   ElementalMatrix<F>& Z,
   const QRCtrl<Base<F>> ctrl )
 {
     DEBUG_ONLY(CSE cse("id::BusingerGolub"))
     typedef Base<F> Real;
 
-    auto APtr = ReadWriteProxy<F,MC,MR>( &APre );
-    auto& A = *APtr;
+    DistMatrixReadWriteProxy<F,F,MC,MR> AProx( APre );
+    auto& A = AProx.Get();
 
     // Perform the pivoted QR factorization
     DistMatrix<F,MD,STAR> t(A.Grid());
     DistMatrix<Base<F>,MD,STAR> d(A.Grid());
-    QR( A, t, d, p, ctrl );
+    QR( A, t, d, Omega, ctrl );
     const Int numSteps = t.Height();
 
     const Int n = A.Width();
@@ -143,19 +146,19 @@ BusingerGolub
 template<typename F> 
 void ID
 ( const Matrix<F>& A,
-        Matrix<Int>& p, 
+        Permutation& Omega,
         Matrix<F>& Z,
   const QRCtrl<Base<F>> ctrl )
 {
     DEBUG_ONLY(CSE cse("ID"))
     Matrix<F> B( A );
-    id::BusingerGolub( B, p, Z, ctrl );
+    id::BusingerGolub( B, Omega, Z, ctrl );
 }
 
 template<typename F> 
 void ID
 (       Matrix<F>& A,
-        Matrix<Int>& p, 
+        Permutation& Omega,
         Matrix<F>& Z,
   const QRCtrl<Base<F>> ctrl,
         bool canOverwrite )
@@ -166,25 +169,25 @@ void ID
         View( B, A );
     else
         B = A;
-    id::BusingerGolub( B, p, Z, ctrl );
+    id::BusingerGolub( B, Omega, Z, ctrl );
 }
 
 template<typename F> 
 void ID
 ( const ElementalMatrix<F>& A,
-        ElementalMatrix<Int>& p, 
+        DistPermutation& Omega,
         ElementalMatrix<F>& Z,
   const QRCtrl<Base<F>> ctrl )
 {
     DEBUG_ONLY(CSE cse("ID"))
     DistMatrix<F> B( A );
-    id::BusingerGolub( B, p, Z, ctrl );
+    id::BusingerGolub( B, Omega, Z, ctrl );
 }
 
 template<typename F> 
 void ID
 (       ElementalMatrix<F>& A,
-        ElementalMatrix<Int>& p, 
+        DistPermutation& Omega,
         ElementalMatrix<F>& Z,
   const QRCtrl<Base<F>> ctrl,
         bool canOverwrite )
@@ -192,35 +195,35 @@ void ID
     DEBUG_ONLY(CSE cse("ID"))
     if( canOverwrite )
     {
-        id::BusingerGolub( A, p, Z, ctrl );
+        id::BusingerGolub( A, Omega, Z, ctrl );
     }
     else
     {
         DistMatrix<F> B( A );
-        id::BusingerGolub( B, p, Z, ctrl );
+        id::BusingerGolub( B, Omega, Z, ctrl );
     }
 }
 
 #define PROTO(F) \
   template void ID \
   ( const Matrix<F>& A, \
-          Matrix<Int>& p, \
+          Permutation& Omega, \
           Matrix<F>& Z, \
     const QRCtrl<Base<F>> ctrl ); \
   template void ID \
   ( const ElementalMatrix<F>& A, \
-          ElementalMatrix<Int>& p, \
+          DistPermutation& Omega, \
           ElementalMatrix<F>& Z, \
     const QRCtrl<Base<F>> ctrl ); \
   template void ID \
   ( Matrix<F>& A, \
-    Matrix<Int>& p, \
+    Permutation& Omega, \
     Matrix<F>& Z, \
     const QRCtrl<Base<F>> ctrl, \
     bool canOverwrite ); \
   template void ID \
   ( ElementalMatrix<F>& A, \
-    ElementalMatrix<Int>& p, \
+    DistPermutation& Omega, \
     ElementalMatrix<F>& Z, \
     const QRCtrl<Base<F>> ctrl, \
     bool canOverwrite ); 

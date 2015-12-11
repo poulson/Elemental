@@ -65,10 +65,11 @@ void Swap( Orientation orientation, Matrix<T>& X, Matrix<T>& Y )
 
 template<typename T>
 void Swap
-( Orientation orientation, ElementalMatrix<T>& X, ElementalMatrix<T>& Y )
+( Orientation orientation,
+  AbstractDistMatrix<T>& X,
+  AbstractDistMatrix<T>& Y )
 {
     DEBUG_ONLY(CSE cse("Swap"))
-    const Grid& g = X.Grid();
     if( orientation == NORMAL )
     {
         DEBUG_ONLY(
@@ -76,17 +77,9 @@ void Swap
               LogicError("Invalid submatrix sizes");
         )
         // TODO: Optimize communication
-
-        unique_ptr<ElementalMatrix<T>> YLikeX( X.Construct(g,X.Root()) );
-        YLikeX->AlignWith( X.DistData() );
-        Copy( Y, *YLikeX );
-
-        unique_ptr<ElementalMatrix<T>> XLikeY( Y.Construct(g,Y.Root()) );
-        XLikeY->AlignWith( Y.DistData() );
-        Copy( X, *XLikeY );
-
-        Copy( XLikeY->Matrix(), Y.Matrix() );
-        Copy( YLikeX->Matrix(), X.Matrix() );
+        unique_ptr<AbstractDistMatrix<T>> XCopy( X.Copy() );
+        Copy( Y, X );
+        Copy( *XCopy, Y );
     }
     else
     {
@@ -95,25 +88,23 @@ void Swap
           if( Y.Width() != X.Height() || Y.Height() != X.Width() )
               LogicError("Invalid submatrix sizes");
         )
-
         // TODO: Optimize communication
-        unique_ptr<ElementalMatrix<T>> YTransLikeX( X.Construct(g,X.Root()) );
-        YTransLikeX->AlignWith( X.DistData() );
-        Transpose( Y, *YTransLikeX, conjugate );
-
-        unique_ptr<ElementalMatrix<T>> XTransLikeY( Y.Construct(g,Y.Root()) );
-        XTransLikeY->AlignWith( Y.DistData() );
-        Transpose( X, *XTransLikeY, conjugate );
-
-        Copy( XTransLikeY->Matrix(), Y.Matrix() );
-        Copy( YTransLikeX->Matrix(), X.Matrix() );
+        unique_ptr<AbstractDistMatrix<T>> XCopy( X.Copy() );       
+        Transpose( Y, X, conjugate );
+        Transpose( *XCopy, Y, conjugate );
     }
 }
 
 template<typename T>
 void RowSwap( Matrix<T>& A, Int to, Int from )
 {
-    DEBUG_ONLY(CSE cse("RowSwap"))
+    DEBUG_ONLY(
+      CSE cse("RowSwap");
+      if( to < 0 || to >= A.Height() || from < 0 || from >= A.Height() )
+          LogicError
+          ("Attempted invalid row swap, (",to,",",from,") of matrix of height ",
+           A.Height());
+    )
     if( to == from )
         return;
     const Int n = A.Width();
@@ -123,9 +114,16 @@ void RowSwap( Matrix<T>& A, Int to, Int from )
 }
 
 template<typename T>
-void RowSwap( ElementalMatrix<T>& A, Int to, Int from )
+void RowSwap( AbstractDistMatrix<T>& A, Int to, Int from )
 {
-    DEBUG_ONLY(CSE cse("RowSwap"))
+    DEBUG_ONLY(
+      CSE cse("RowSwap");
+      if( to < 0 || to >= A.Height() || from < 0 || from >= A.Height() )
+          LogicError
+          ("Attempted invalid row swap, (",to,",",from,") of matrix of height ",
+           A.Height());
+    )
+
     if( to == from )
         return;
     if( !A.Participating() )
@@ -177,7 +175,14 @@ void RowSwap( ElementalMatrix<T>& A, Int to, Int from )
 template<typename T>
 void ColSwap( Matrix<T>& A, Int to, Int from )
 {
-    DEBUG_ONLY(CSE cse("ColSwap"))
+    DEBUG_ONLY(
+      CSE cse("ColSwap");
+      if( to < 0 || to >= A.Width() || from < 0 || from >= A.Width() )
+          LogicError
+          ("Attempted invalid col swap, (",to,",",from,") of matrix of width ",
+           A.Width());
+    )
+
     if( to == from )
         return;
     const Int m = A.Height();
@@ -187,9 +192,15 @@ void ColSwap( Matrix<T>& A, Int to, Int from )
 }
 
 template<typename T>
-void ColSwap( ElementalMatrix<T>& A, Int to, Int from )
+void ColSwap( AbstractDistMatrix<T>& A, Int to, Int from )
 {
-    DEBUG_ONLY(CSE cse("ColSwap"))
+    DEBUG_ONLY(
+      CSE cse("ColSwap");
+      if( to < 0 || to >= A.Width() || from < 0 || from >= A.Width() )
+          LogicError
+          ("Attempted invalid col swap, (",to,",",from,") of matrix of width ",
+           A.Width());
+    )
     if( to == from )
         return;
     if( !A.Participating() )
@@ -235,7 +246,12 @@ void SymmetricSwap
       CSE cse("SymmetricSwap");
       if( A.Height() != A.Width() )
           LogicError("A must be square");
+      if( to < 0 || to >= A.Height() || from < 0 || from >= A.Height() )
+          LogicError
+          ("Attempted invalid symmetric swap, (",to,",",from,
+           ") of matrix of size ",A.Height());
     )
+
     if( to == from )
     {
         if( conjugate )
@@ -322,15 +338,19 @@ void SymmetricSwap
 
 template<typename T>
 void SymmetricSwap
-( UpperOrLower uplo, ElementalMatrix<T>& A, 
+( UpperOrLower uplo, AbstractDistMatrix<T>& A, 
   Int to, Int from, bool conjugate )
 {
     DEBUG_ONLY(
       CSE cse("SymmetricSwap");
       if( A.Height() != A.Width() )
           LogicError("A must be square");
+      if( to < 0 || to >= A.Height() || from < 0 || from >= A.Height() )
+          LogicError
+          ("Attempted invalid symmetric swap, (",to,",",from,
+           ") of matrix of size ",A.Height());
     )
-    typedef unique_ptr<ElementalMatrix<T>> ADMPtr;
+    typedef unique_ptr<AbstractDistMatrix<T>> ADMPtr;
 
     if( to == from )
     {
@@ -433,7 +453,7 @@ void HermitianSwap( UpperOrLower uplo, Matrix<T>& A, Int to, Int from )
 
 template<typename T>
 void HermitianSwap
-( UpperOrLower uplo, ElementalMatrix<T>& A, Int to, Int from )
+( UpperOrLower uplo, AbstractDistMatrix<T>& A, Int to, Int from )
 {
     DEBUG_ONLY(CSE cse("HermitianSwap"))
     SymmetricSwap( uplo, A, to, from, true );
@@ -443,20 +463,20 @@ void HermitianSwap
   template void Swap( Orientation orientation, Matrix<T>& X, Matrix<T>& Y ); \
   template void Swap \
   ( Orientation orientation, \
-    ElementalMatrix<T>& X, ElementalMatrix<T>& Y ); \
+    AbstractDistMatrix<T>& X, AbstractDistMatrix<T>& Y ); \
   template void RowSwap( Matrix<T>& A, Int to, Int from ); \
-  template void RowSwap( ElementalMatrix<T>& A, Int to, Int from ); \
+  template void RowSwap( AbstractDistMatrix<T>& A, Int to, Int from ); \
   template void ColSwap( Matrix<T>& A, Int to, Int from ); \
-  template void ColSwap( ElementalMatrix<T>& A, Int to, Int from ); \
+  template void ColSwap( AbstractDistMatrix<T>& A, Int to, Int from ); \
   template void SymmetricSwap \
   ( UpperOrLower uplo, Matrix<T>& A, Int to, Int from, bool conjugate ); \
   template void SymmetricSwap \
-  ( UpperOrLower uplo, ElementalMatrix<T>& A, Int to, Int from, \
+  ( UpperOrLower uplo, AbstractDistMatrix<T>& A, Int to, Int from, \
     bool conjugate ); \
   template void HermitianSwap \
   ( UpperOrLower uplo, Matrix<T>& A, Int to, Int from ); \
   template void HermitianSwap \
-  ( UpperOrLower uplo, ElementalMatrix<T>& A, Int to, Int from );
+  ( UpperOrLower uplo, AbstractDistMatrix<T>& A, Int to, Int from );
 
 #define EL_ENABLE_QUAD
 #include "El/macros/Instantiate.h"

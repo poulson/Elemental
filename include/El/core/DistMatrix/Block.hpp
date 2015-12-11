@@ -28,12 +28,12 @@ public:
 
     virtual ~BlockMatrix();
 
-    virtual BlockMatrix<T>* Construct
-    ( const El::Grid& g, int root ) const = 0;
-    virtual BlockMatrix<T>* ConstructTranspose
-    ( const El::Grid& g, int root ) const = 0;
-    virtual BlockMatrix<T>* ConstructDiagonal
-    ( const El::Grid& g, int root ) const = 0;
+    virtual type* Copy() const override = 0;
+    virtual type* Construct( const El::Grid& g, int root ) const override = 0;
+    virtual type* ConstructTranspose( const El::Grid& g, int root ) const
+      override = 0;
+    virtual type* ConstructDiagonal( const El::Grid& g, int root ) const
+      override = 0;
 
     // Assignment and reconfiguration
     // ==============================
@@ -139,6 +139,8 @@ public:
     int ColOwner( Int j )       const override EL_NO_EXCEPT;
     Int LocalRowOffset( Int i ) const override EL_NO_EXCEPT;
     Int LocalColOffset( Int j ) const override EL_NO_EXCEPT;
+    Int LocalRowOffset( Int i, int rowOwner ) const override EL_NO_EXCEPT;
+    Int LocalColOffset( Int j, int colOwner ) const override EL_NO_EXCEPT;
     Int GlobalRow( Int iLoc )   const override EL_NO_EXCEPT;
     Int GlobalCol( Int jLoc )   const override EL_NO_EXCEPT;
 
@@ -196,35 +198,6 @@ void AssertConforming2x2
   const BlockMatrix<T>& ATR,
   const BlockMatrix<T>& ABL, 
   const BlockMatrix<T>& ABR );
-
-#ifdef EL_HAVE_SCALAPACK
-namespace blacs {
-
-template<typename T>
-inline int Handle( const BlockMatrix<T>& A )
-{ return Handle( A.DistComm().comm ); }
-
-template<typename T>
-inline int GridInit( int bHandle, const BlockMatrix<T>& A )
-{
-    const int context =
-      GridInit
-      ( bHandle, A.Grid().Order()==COLUMN_MAJOR, A.ColStride(), A.RowStride() );
-    DEBUG_ONLY(
-      if( A.ColStride() != GridHeight(context) )
-          LogicError("Grid height did not match BLACS");
-      if( A.RowStride() != GridWidth(context) )
-          LogicError("Grid width did not match BLACS");
-      if( A.ColRank() != GridRow(context) )
-          LogicError("Grid row did not match BLACS");
-      if( A.RowRank() != GridCol(context) )
-          LogicError("Grid col did not match BLACS");
-    )
-    return context;
-}
-
-} // namespace blacs
-#endif
 
 } // namespace El
 

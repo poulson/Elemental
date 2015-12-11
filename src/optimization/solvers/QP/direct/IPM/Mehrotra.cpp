@@ -108,7 +108,7 @@ void Mehrotra
                  dxAff, dyAff, dzAff,
                  dx,    dy,    dz;
     Matrix<Real> dSub;
-    Matrix<Int> p;
+    Permutation p;
     Matrix<Real> dxError, dyError, dzError, prod;
     const Int indent = PushIndent();
     for( Int numIts=0; numIts<=ctrl.maxIts; ++numIts )
@@ -413,16 +413,22 @@ void Mehrotra
     A = APre;
     b = bPre;
     c = cPre;
+
     ElementalProxyCtrl control;
     control.colConstrain = true;
     control.rowConstrain = true;
     control.colAlign = 0;
     control.rowAlign = 0;
+
     // NOTE: x does not need to be a read proxy when !ctrl.primalInit
-    auto xPtr = ReadWriteProxy<Real,MC,MR>(&xPre,control); auto& x = *xPtr;
+    DistMatrixReadWriteProxy<Real,Real,MC,MR>
+      xProx( xPre, control ),
     // NOTE: {y,z} do not need to be read proxies when !ctrl.dualInit
-    auto yPtr = ReadWriteProxy<Real,MC,MR>(&yPre,control); auto& y = *yPtr;
-    auto zPtr = ReadWriteProxy<Real,MC,MR>(&zPre,control); auto& z = *zPtr;
+      yProx( yPre, control ),
+      zProx( zPre, control );
+    auto& x = xProx.Get();
+    auto& y = yProx.Get();
+    auto& z = zProx.Get();
 
     // Equilibrate the QP by diagonally scaling A
     const Int m = A.Height();
@@ -485,7 +491,7 @@ void Mehrotra
     dzAff.AlignWith( x );
     rmu.AlignWith( x );
     DistMatrix<Real> dSub(grid);
-    DistMatrix<Int> p(grid);
+    DistPermutation p(grid);
     DistMatrix<Real> dxError(grid), dyError(grid), dzError(grid), prod(grid);
     dzError.AlignWith( dz );
     const Int indent = PushIndent();
