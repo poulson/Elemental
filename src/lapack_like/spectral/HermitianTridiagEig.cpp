@@ -338,11 +338,11 @@ inline void Helper
     ZCtrl.rowAlign = 0;
 
     DistMatrixWriteProxy<Real,Real,VR,STAR> wProx( wPre, wCtrl );
-    DistMatrixWriteProxy<Real,double,STAR,VR> ZProx( ZPre, ZCtrl );
+    DistMatrixWriteProxy<Real,Real,STAR,VR> ZProx( ZPre, ZCtrl );
     auto& w = wProx.Get();
     auto& Z = ZProx.Get();
 
-    DistMatrix<double,STAR,STAR> d_STAR_STAR(g), dSub_STAR_STAR(g);
+    DistMatrix<Real,STAR,STAR> d_STAR_STAR(g), dSub_STAR_STAR(g);
     Copy( d, d_STAR_STAR );
     dSub_STAR_STAR.Resize( n-1, 1, n );
     Copy( dSub, dSub_STAR_STAR );
@@ -350,7 +350,7 @@ inline void Helper
     Int k;
     if( subset.rangeSubset )
     {
-        vector<double> dVector(n), dSubVector(n), wVector(n);
+        vector<Real> dVector(n), dSubVector(n), wVector(n);
         MemCopy( dVector.data(), d_STAR_STAR.Buffer(), n );
         MemCopy( dSubVector.data(), dSub_STAR_STAR.Buffer(), n-1 );
         auto estimate = herm_tridiag_eig::EigEstimate
@@ -368,7 +368,7 @@ inline void Helper
     Z.Resize( n, k );
 
     herm_tridiag_eig::Info info;
-    vector<double> wVector(n);
+    vector<Real> wVector(n);
     if( subset.rangeSubset )
         info = herm_tridiag_eig::Eig
           ( int(n), d_STAR_STAR.Buffer(), dSub_STAR_STAR.Buffer(), 
@@ -405,26 +405,26 @@ inline void Helper
     const Grid& g = d.Grid();
     typedef Complex<Real> C;
 
-    DistMatrix<double,STAR,STAR> d_STAR_STAR(g);
-    DistMatrix<Complex<double>,STAR,STAR> dSub_STAR_STAR(g);
+    DistMatrix<Real,STAR,STAR> d_STAR_STAR(g);
+    DistMatrix<Complex<Real>,STAR,STAR> dSub_STAR_STAR(g);
     Copy( d, d_STAR_STAR );
     dSub_STAR_STAR.Resize( n-1, 1, n );
     Copy( dSub, dSub_STAR_STAR );
 
-    DistMatrix<Complex<double>,STAR,STAR> y(n,1,g);
-    DistMatrix<double,STAR,STAR> dSubReal(g);
+    DistMatrix<Complex<Real>,STAR,STAR> y(n,1,g);
+    DistMatrix<Real,STAR,STAR> dSubReal(g);
     dSubReal.Resize( n-1, 1, n );
 
     y.SetLocal(0,0,1);
     for( Int j=0; j<n-1; ++j )
     {
-        const Complex<double> psi = dSub_STAR_STAR.GetLocal(j,0);
+        const Complex<Real> psi = dSub_STAR_STAR.GetLocal(j,0);
         const double psiAbs = Abs(psi);
         if( psiAbs == double(0) )
             y.SetLocal( j+1, 0, 1 );
         else
             y.SetLocal
-            ( j+1, 0, ComplexFromPolar(double(1),Arg(psi*y.GetLocal(j,0))) );
+            ( j+1, 0, ComplexFromPolar(static_cast<Real>(1.0), Arg( psi*y.GetLocal(j,0)) ) );
         dSubReal.SetLocal( j, 0, psiAbs );
     }
 
@@ -442,7 +442,7 @@ inline void Helper
     Int k;
     if( subset.rangeSubset )
     {
-        vector<double> dVector(n), dSubVector(n), wVector(n);
+        vector<Real> dVector(n), dSubVector(n), wVector(n);
         MemCopy( dVector.data(), d_STAR_STAR.Buffer(), n );
         MemCopy( dSubVector.data(), dSubReal.Buffer(), n-1 );
         auto estimate = herm_tridiag_eig::EigEstimate
@@ -457,11 +457,11 @@ inline void Helper
         k = ( n==0 ? 0 : subset.upperIndex-subset.lowerIndex+1 );
     else
         k = n;
-    DistMatrix<double,STAR,VR> ZReal(g);
+    DistMatrix<Real,STAR,VR> ZReal(g);
     ZReal.Resize( n, k );
 
     herm_tridiag_eig::Info info;
-    vector<double> wVector(n);
+    vector<Real> wVector(n);
     if( subset.rangeSubset )
         info = herm_tridiag_eig::Eig
           ( int(n), d_STAR_STAR.Buffer(), dSubReal.Buffer(), 
@@ -515,12 +515,12 @@ Int HermitianTridiagEigEstimate
 {
     DEBUG_ONLY(CSE cse("HermitianTridiagEigEstimate"))
     const Int n = d.Height();
-    DistMatrix<double,STAR,STAR> d_STAR_STAR( d.Grid() );
-    DistMatrix<double,STAR,STAR> dSub_STAR_STAR( d.Grid() );
+    DistMatrix<Real,STAR,STAR> d_STAR_STAR( d.Grid() );
+    DistMatrix<Real,STAR,STAR> dSub_STAR_STAR( d.Grid() );
     Copy( d, d_STAR_STAR );
     dSub_STAR_STAR.Resize( n-1, 1, n );
     Copy( dSub, dSub_STAR_STAR );
-    vector<double> dVector(n), dSubVector(n), wVector(n);
+    vector<Real> dVector(n), dSubVector(n), wVector(n);
     MemCopy( dVector.data(), d_STAR_STAR.Buffer(), n );
     MemCopy( dSubVector.data(), dSub_STAR_STAR.Buffer(), n-1 );
     auto estimate = herm_tridiag_eig::EigEstimate
