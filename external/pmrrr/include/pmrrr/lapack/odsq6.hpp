@@ -3,6 +3,9 @@
 	Based on C code translated by f2c (version 20061008).
 */
 
+#ifndef __ODSQ6_HPP__
+#define __ODSQ6_HPP__
+
 #include <limits>
 #include <stdlib.h>
 #include <stdio.h>
@@ -216,3 +219,5 @@ namespace pmrrr { namespace lapack {
 }
 
 }
+
+#endif

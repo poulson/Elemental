@@ -38,6 +38,9 @@
  *
  */
 
+#ifndef __RRR_HPP__
+#define __RRR_HPP__
+
 #include <cstdlib>
 #include <cstdio>
 #include <cassert>
@@ -188,3 +191,4 @@ namespace pmrrr { namespace detail {
 
 }	// pmrrr
 
+#endif

@@ -38,12 +38,15 @@
  *
  */
 
+
+#ifndef __PROCESS_C_TASK_HPP__
+#define __PROCESS_C_TASK_HPP__
+
 #include <limits>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <cmath>
-#include <cfloat>
 #include <cassert>
 #include <semaphore.h>
 
@@ -892,3 +895,4 @@ namespace pmrrr { namespace detail {
 
 } //namespace pmrrr
 
+#endif

@@ -13,7 +13,7 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odneg.hpp"
+#include <pmrrr/lapack/odneg.hpp>
 
 namespace pmrrr { namespace lapack {
 

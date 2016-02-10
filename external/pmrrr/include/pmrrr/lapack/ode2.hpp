@@ -3,6 +3,9 @@
 	Based on C code translated by f2c (version 20061008).
 */
 
+#ifndef __ODE2_HPP__
+#define __ODE2_HPP__
+
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -145,3 +148,5 @@ namespace pmrrr { namespace lapack {
 }
 
 }
+
+#endif

@@ -13,7 +13,7 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odsnan.hpp"
+#include <pmrrr/lapack/odsnan.hpp>
 
 namespace pmrrr { namespace lapack {
 

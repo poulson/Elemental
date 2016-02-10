@@ -13,8 +13,8 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odssq.hpp"
-#include "lapack.hpp"
+#include <pmrrr/lapack/odssq.hpp>
+#include <pmrrr/lapack/lapack.hpp>
 
 namespace pmrrr { namespace lapack {
 

@@ -23,11 +23,6 @@ struct Estimate {
     int numGlobalEigenvalues;
 };
 
-// Return an upper bound on the number of (local) eigenvalues in the given range
-Estimate EigEstimate
-( int n,  double* d, double* e, double* w, mpi::Comm comm, 
-  double lowerBound, double upperBound );
-
 struct Info {
     int numLocalEigenvalues;
     int numGlobalEigenvalues;
@@ -53,7 +48,7 @@ Estimate EigEstimate
     vector<int> ZSupport(2*n);
     int retval = pmrrr::pmrrr
     ( &jobz, &range, &n, d, e, &lowerBound, &upperBound, &il, &iu, 
-      &highAccuracy, comm.comm, &nz, &offset, w, 0, &ldz, ZSupport.data() );
+      &highAccuracy, comm.comm, &nz, &offset, w, static_cast<FloatingType*>(nullptr), &ldz, ZSupport.data() );
     if( retval != 0 )
         RuntimeError("pmrrr returned ",retval);
 

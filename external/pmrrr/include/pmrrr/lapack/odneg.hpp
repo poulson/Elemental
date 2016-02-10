@@ -13,7 +13,7 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odnan.hpp"
+#include <pmrrr/lapack/odnan.hpp>
 
 #define imax(a,b) ( (a) > (b) ? (a) : (b) )
 #define imin(a,b) ( (a) < (b) ? (a) : (b) )

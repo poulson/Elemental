@@ -3,6 +3,9 @@
 	Based on C code translated by f2c (version 20061008).
 */
 
+#ifndef __ODSTMR_HPP__
+#define __ODSTMR_HPP__
+
 #include <limits>
 #include <cstdlib>
 #include <cstdio>
@@ -10,7 +13,6 @@
 #include <cmath>
 #include <cfloat>
 #include <cassert>
-
 
 #include <pmrrr/lapack/lapack.hpp>
 #include <pmrrr/lapack/odrre.hpp>
@@ -755,3 +757,4 @@ namespace pmrrr { namespace lapack {
 
 } //namespace pmrrr
 
+#endif

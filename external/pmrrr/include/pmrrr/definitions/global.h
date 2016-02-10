@@ -43,59 +43,60 @@
 
 #include <mpi.h>
 
+
 #ifdef __STDC__
- /* Some version of Standard C */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__>=199901L
- /* C99 */
+ 	/* Some version of Standard C */
+	#if defined (__STDC_VERSION__) && __STDC_VERSION__>=199901L
+	 /* C99 */
 
-#include <stdbool.h>
-/* #pragma STDC FP_CONTRACT ON|OFF|DEFAULT */
+		#include <stdbool.h>
+		/* #pragma STDC FP_CONTRACT ON|OFF|DEFAULT */
 
-#else
- /* C89 with or without Amendment 1, see H&S p.53 */
+	#else
+		 /* C89 with or without Amendment 1, see H&S p.53 */
 
-#define restrict /*nothing*/
-#define inline   /*nothing*/
+		#define restrict /*nothing*/
+		//#define inline   /*nothing*/
 
-/*
-#define fmax(a,b) ( (a) > (b) ? (a) : (b) )
-#define fmin(a,b) ( (a) < (b) ? (a) : (b) )
-*/
+		/*
+		#define fmax(a,b) ( (a) > (b) ? (a) : (b) )
+		#define fmin(a,b) ( (a) < (b) ? (a) : (b) )
+		*/
 
-/* C++ provides a full support for booleans, but LAPACK->C interface accepts integers.
-   For compatibility with previous code, provide an integer_boolean
-*/
-#ifndef __cplusplus
-typedef int    bool;
-#define false  0
-#define true   1
-#endif
+		/* C++ provides a full support for booleans, but LAPACK->C interface accepts integers.
+		   For compatibility with previous code, provide an integer_boolean
+		*/
+		#ifndef __cplusplus
+		typedef int    bool;
+		#define false  0
+		#define true   1
+		#endif
 
-#endif
+	#endif
 #else  /* __STDC__ not defined */
- /* Not Standard C */
+	 /* Not Standard C */
 
-#define inline /*nothing*/
+	//#define inline /*nothing*/
 
- /* in case compiler does not support type qualifiers
-  * see Harbison and Steele p. 89*/
-#define const /*nothing*/
-#define volatile /*nothing*/
-#define restrict /*nothing*/
-/*
-#define fmax(a,b) ( (a) > (b) ? (a) : (b) )
-#define fmin(a,b) ( (a) < (b) ? (a) : (b) )
-*/
-typedef int    bool_;
-#define false  0
-#define true   1
+	 /* in case compiler does not support type qualifiers
+	  * see Harbison and Steele p. 89*/
+	#define const /*nothing*/
+	#define volatile /*nothing*/
+	#define restrict /*nothing*/
+	/*
+	#define fmax(a,b) ( (a) > (b) ? (a) : (b) )
+	#define fmin(a,b) ( (a) < (b) ? (a) : (b) )
+	*/
+	typedef int    bool_;
+	#define false  0
+	#define true   1
 
- /* need also remove all // style comments */
- /* inline ... */
-
+	 /* need also remove all // style comments */
+	 /* inline ... */
 #endif
 /* see H&S p.70 to include C++ in the list above */
 
+//#define restrict /**/
 /* max/min/ceil for integers */
 #define imax(a,b) ( (a) > (b) ? (a) : (b) )
 #define imin(a,b) ( (a) < (b) ? (a) : (b) )

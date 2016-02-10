@@ -14,8 +14,8 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odebz.hpp"
-#include "lapack.hpp"
+#include <pmrrr/lapack/odebz.hpp>
+#include <pmrrr/lapack/lapack.hpp>
 
 #define imax(a,b) ( (a) > (b) ? (a) : (b) )
 #define imin(a,b) ( (a) < (b) ? (a) : (b) )

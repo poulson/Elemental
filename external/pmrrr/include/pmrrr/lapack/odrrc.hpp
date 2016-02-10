@@ -13,7 +13,7 @@
 #include <float.h>
 #include <assert.h>
 
-#include "lapack.hpp"
+#include <pmrrr/lapack/lapack.hpp>
 
 namespace pmrrr { namespace lapack {
 

@@ -13,7 +13,7 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odruv.hpp"
+#include <pmrrr/lapack/odruv.hpp>
 
 #define imin(a,b) ( (a) < (b) ? (a) : (b) )
 

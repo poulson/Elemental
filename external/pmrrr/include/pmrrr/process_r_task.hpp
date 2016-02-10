@@ -38,11 +38,14 @@
  *
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#ifndef __PROCESS_R_TASK_HPP__
+#define __PROCESS_R_TASK_HPP__
+
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <semaphore.h>
-#include <assert.h>
+#include <cassert>
 
 #include <mpi.h>
 
@@ -172,3 +175,4 @@ namespace pmrrr { namespace detail {
 
 } //namespace pmrrr
 
+#endif

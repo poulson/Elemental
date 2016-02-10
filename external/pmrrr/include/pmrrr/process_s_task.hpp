@@ -38,6 +38,9 @@
  *
  */
 
+#ifndef __PROCESS_S_TASK_HPP__
+#define __PROCESS_S_TASK_HPP__
+
 #include <limits>
 #include <cstdlib>
 #include <cstdio>
@@ -327,3 +330,5 @@ namespace pmrrr { namespace detail {
 } // detail
 
 } // pmrrr
+
+#endif

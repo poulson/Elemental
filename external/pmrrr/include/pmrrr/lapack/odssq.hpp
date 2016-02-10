@@ -3,6 +3,9 @@
 	Based on C code translated by f2c (version 20061008).
 */
 
+#ifndef __ODSSQ_HPP__
+#define __ODSSQ_HPP__
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -118,3 +121,5 @@ namespace pmrrr { namespace lapack {
 }
 
 }
+
+#endif

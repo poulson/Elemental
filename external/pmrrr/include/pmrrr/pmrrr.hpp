@@ -44,6 +44,9 @@
  *
  */
 
+#ifndef __PMRRR_HPP__
+#define __PMRRR_HPP__
+
 #include <algorithm>
 #include <limits>
 
@@ -58,8 +61,6 @@
 
 #include <pmrrr/definitions/pmrrr.h>
 #include <pmrrr/definitions/global.h>
-//#include "plarre.h"
-//#include "plarrv.h"
 #include <pmrrr/definitions/structs.h>
 #include <pmrrr/plarrv.hpp>
 #include <pmrrr/plarre.hpp>
@@ -1064,3 +1065,5 @@ void pmr_comm_eigvals_(MPI_Fint *comm, int *nz, int *myfirstp,
 }
 
 }
+
+#endif

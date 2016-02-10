@@ -14,7 +14,7 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odnan.hpp"
+#include <pmrrr/lapack/odnan.hpp>
 
 #define TRUE_ (1)
 #define FALSE_ (0)

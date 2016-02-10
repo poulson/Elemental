@@ -3,6 +3,9 @@
 	Based on C code translated by f2c (version 20061008).
 */
 
+#ifndef __ODSQ3_HPP__
+#define __ODSQ3_HPP__
+
 #include <limits>
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,10 +14,10 @@
 #include <float.h>
 #include <assert.h>
 
-#include "odsq4.hpp"
-#include "odsq5.hpp"
-#include "odsq6.hpp"
-#include "odnan.hpp"
+#include <pmrrr/lapack/odsq4.hpp>
+#include <pmrrr/lapack/odsq5.hpp>
+#include <pmrrr/lapack/odsq6.hpp>
+#include <pmrrr/lapack/odnan.hpp>
 
 namespace pmrrr { namespace lapack {
 
@@ -358,3 +361,5 @@ namespace pmrrr { namespace lapack {
 }
 
 }
+
+#endif

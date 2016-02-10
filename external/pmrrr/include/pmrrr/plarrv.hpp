@@ -41,6 +41,9 @@
  *
  */
 
+#ifndef __PLARRV_HPP__
+#define __PLARRV_HPP__
+
 #include <algorithm>
 
 #include <cstdlib>
@@ -757,3 +760,4 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 
 }
 
+#endif

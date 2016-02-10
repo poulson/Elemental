@@ -42,6 +42,10 @@
  *
  */
 
+
+#ifndef __PLARRE_HPP__
+#define __PLARRE_HPP__
+
 #include <limits>
 #include <stdlib.h>
 #include <stdio.h>
@@ -1163,3 +1167,5 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 }	// detail
 
 }	// pmrrr
+
+#endif

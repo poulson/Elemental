@@ -38,9 +38,12 @@
  *
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
+#ifndef __TASKS_HPP__
+#define __TASKS_HPP__
+
+#include <cstdlib>
+#include <cstdio>
+#include <cassert>
 
 #include <pmrrr/definitions/rrr.h>
 #include <pmrrr/definitions/tasks.h>
@@ -155,3 +158,4 @@ namespace pmrrr { namespace detail {
 
 }	// pmrrr
 
+#endif
