@@ -26,7 +26,7 @@ include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 # ------------------------------------------
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
   DESTINATION ${CMAKE_INSTALL_PREFIX}/include/
-  FILES_MATCHING PATTERN "*.h")
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
 if(WIN32 OR APPLE OR NOT EL_HYBRID)
   # Disable for Windows because of lack of POSIX support;
   # disable for Mac OS X because of deprecation of unnamed semaphores
@@ -73,7 +73,7 @@ set(CMAKE_THREAD_LIBS_INIT ${CMAKE_THREAD_LIBS_INIT} PARENT_SCOPE)
 
 # Define the main library and its link libraries
 # ----------------------------------------------
-file(GLOB_RECURSE PMRRR_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.c" "*.h")
+file(GLOB_RECURSE PMRRR_SRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.cpp" "*.h")
 add_library(pmrrr ${LIBRARY_TYPE} ${PMRRR_SRC})
 if(DISABLE_PTHREADS)
   target_link_libraries(pmrrr ${MPI_C_LIBRARIES} ${MATH_LIBS})
