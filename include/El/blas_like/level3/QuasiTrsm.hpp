@@ -1,0 +1,238 @@
+#ifndef EL_BLAS_LIKE_LEVEL3_QUASITRSM_HPP
+#define EL_BLAS_LIKE_LEVEL3_QUASITRSM_HPP
+
+/*
+   Copyright (c) 2009-2016, Jack Poulson
+   All rights reserved.
+
+   This file is part of Elemental and is under the BSD 2-Clause License, 
+   which can be found in the LICENSE file in the root directory, or at 
+   http://opensource.org/licenses/BSD-2-Clause
+*/
+#include "El.hpp"
+
+#include "./QuasiTrsm/LLN.hpp"
+#include "./QuasiTrsm/LLT.hpp"
+#include "./QuasiTrsm/LUN.hpp"
+#include "./QuasiTrsm/LUT.hpp"
+//#include "./QuasiTrsm/RLN.hpp"
+//#include "./QuasiTrsm/RLT.hpp"
+//#include "./QuasiTrsm/RUN.hpp"
+//#include "./QuasiTrsm/RUT.hpp"
+
+namespace El {
+
+template<typename F>
+void QuasiTrsm
+( LeftOrRight side, UpperOrLower uplo, Orientation orientation, 
+  F alpha, const ElementalMatrix<F>& A, ElementalMatrix<F>& B,
+  bool checkIfSingular )
+{
+    DEBUG_ONLY(
+        CSE cse("QuasiTrsm");
+        AssertSameGrids( A, B );
+        if( A.Height() != A.Width() )
+            LogicError("A must be square");
+        if( side == LEFT )
+        {
+            if( A.Height() != B.Height() )
+                LogicError("Nonconformal Trsm");
+        }
+        else
+        {
+            if( A.Height() != B.Width() )
+                LogicError("Nonconformal Trsm");
+        }
+    )
+    B *= alpha;
+    // Call the single right-hand side algorithm if appropriate
+    if( side == LEFT && B.Width() == 1 )
+    {
+        QuasiTrsv( uplo, orientation, A, B );
+        return;
+    }
+    // TODO: Compute appropriate transpose/conjugation options to convert
+    //       to Trsv.
+    /*
+    else if( side == RIGHT && B.Height() == 1 )
+    {
+        QuasiTrsv( uplo, orientation, A, B );
+        return;
+    }
+    */
+
+    const Int p = B.Grid().Size();
+    if( side == LEFT && uplo == LOWER )
+    {
+        if( orientation == NORMAL )
+        {
+            if( B.Width() > 5*p )
+                quasitrsm::LLNLarge( A, B, checkIfSingular );
+            else
+                quasitrsm::LLNMedium( A, B, checkIfSingular );
+        }
+        else
+        {
+            if( B.Width() > 5*p )
+                quasitrsm::LLTLarge( orientation, A, B, checkIfSingular );
+            else
+                quasitrsm::LLTMedium( orientation, A, B, checkIfSingular );
+        }
+    }
+    else if( side == LEFT && uplo == UPPER )
+    {
+        if( orientation == NORMAL )
+        {
+            if( B.Width() > 5*p )
+                quasitrsm::LUNLarge( A, B, checkIfSingular );
+            else
+                quasitrsm::LUNMedium( A, B, checkIfSingular );
+        }
+        else
+        {
+            if( B.Width() > 5*p )
+                quasitrsm::LUTLarge( orientation, A, B, checkIfSingular );
+            else
+                quasitrsm::LUTMedium( orientation, A, B, checkIfSingular );
+        }
+    }
+    else if( side == RIGHT && uplo == LOWER )
+    {
+        if( orientation == NORMAL )
+            //quasitrsm::RLN( A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+        else
+            //quasitrsm::RLT( orientation, A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+    }
+    else if( side == RIGHT && uplo == UPPER )
+    {
+        if( orientation == NORMAL )
+            //quasitrsm::RUN( A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+        else
+            //quasitrsm::RUT( orientation, A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+    }
+}
+
+template<typename F>
+void LocalQuasiTrsm
+( LeftOrRight side, UpperOrLower uplo, Orientation orientation,
+  F alpha, const DistMatrix<F,STAR,STAR>& A, ElementalMatrix<F>& X,
+  bool checkIfSingular )
+{
+    DEBUG_ONLY(
+      CSE cse("LocalQuasiTrsm");
+      if( (side == LEFT && X.ColDist() != STAR) ||
+          (side == RIGHT && X.RowDist() != STAR) )
+          LogicError
+          ("Dist of RHS must conform with that of triangle");
+    )
+    QuasiTrsm
+    ( side, uplo, orientation,
+      alpha, A.LockedMatrix(), X.Matrix(), checkIfSingular );
+}
+
+template<typename F>
+void QuasiTrsm
+( LeftOrRight side, UpperOrLower uplo, Orientation orientation, 
+  F alpha, const Matrix<F>& A, Matrix<F>& B,
+  bool checkIfSingular )
+{
+    DEBUG_ONLY(
+        CSE cse("QuasiTrsm");
+        if( A.Height() != A.Width() )
+            LogicError("A must be square");
+        if( side == LEFT )
+        {
+            if( A.Height() != B.Height() )
+                LogicError("Nonconformal Trsm");
+        }
+        else
+        {
+            if( A.Height() != B.Width() )
+                LogicError("Nonconformal Trsm");
+        }
+    )
+    B *= alpha;
+    // Call the single right-hand side algorithm if appropriate
+    if( side == LEFT && B.Width() == 1 )
+    {
+        QuasiTrsv( uplo, orientation, A, B );
+        return;
+    }
+    // TODO: Compute appropriate transpose/conjugation options to convert
+    //       to Trsv.
+    /*
+    else if( side == RIGHT && B.Height() == 1 )
+    {
+        QuasiTrsv( uplo, orientation, A, B );
+        return;
+    }
+    */
+
+    if( side == LEFT && uplo == LOWER )
+    {
+        if( orientation == NORMAL )
+            quasitrsm::LLN( A, B, checkIfSingular );
+        else
+            quasitrsm::LLT( orientation, A, B, checkIfSingular );
+    }
+    else if( side == LEFT && uplo == UPPER )
+    {
+        if( orientation == NORMAL )
+            quasitrsm::LUN( A, B, checkIfSingular );
+        else
+            quasitrsm::LUT( orientation, A, B, checkIfSingular );
+    }
+    else if( side == RIGHT && uplo == LOWER )
+    {
+        if( orientation == NORMAL )
+            //quasitrsm::RLN( A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+        else
+            //quasitrsm::RLT( orientation, A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+    }
+    else if( side == RIGHT && uplo == UPPER )
+    {
+        if( orientation == NORMAL )
+            //quasitrsm::RUN( A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+        else
+            //quasitrsm::RUT( orientation, A, B, checkIfSingular );
+            LogicError("This case not yet handled");
+    }
+}
+#ifdef EL_INSTANTIATE_BLAS_LEVEL3
+# define EL_EXTERN
+#else
+# define EL_EXTERN extern
+#endif
+
+
+#define PROTO(F) \
+  EL_EXTERN template void QuasiTrsm \
+  ( LeftOrRight side, UpperOrLower uplo, Orientation orientation, \
+    F alpha, const Matrix<F>& A, Matrix<F>& B, bool checkIfSingular ); \
+  EL_EXTERN template void QuasiTrsm \
+  ( LeftOrRight side, UpperOrLower uplo, Orientation orientation, \
+    F alpha, const ElementalMatrix<F>& A, ElementalMatrix<F>& B, \
+    bool checkIfSingular ); \
+  EL_EXTERN template void LocalQuasiTrsm \
+  ( LeftOrRight side, UpperOrLower uplo, Orientation orientation, \
+    F alpha, const DistMatrix<F,STAR,STAR>& A, ElementalMatrix<F>& X, \
+    bool checkIfSingular );
+
+#define EL_NO_INT_PROTO
+#define EL_ENABLE_DOUBLEDOUBLE
+#define EL_ENABLE_QUADDOUBLE
+#define EL_ENABLE_QUAD
+#define EL_ENABLE_BIGFLOAT
+#include "El/macros/Instantiate.h"
+
+#undef EL_EXTERN
+} // namespace El
+
+#endif /* EL_BLAS_LIKE_LEVEL3_QUASITRSM_HPP */

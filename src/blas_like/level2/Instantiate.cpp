@@ -6,10 +6,5 @@
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#ifndef EL_BLAS_LIKE_LEVEL3_HPP
-#define EL_BLAS_LIKE_LEVEL3_HPP
-
-#include <El/blas_like/level3/decl.hpp>
-#include <El/blas_like/level3/impl.hpp>
-
-#endif /* EL_BLAS_LIKE_LEVEL3_HPP */
+#define EL_INSTANTIATE_BLAS_LEVEL2
+#include "El.hpp"

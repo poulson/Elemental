@@ -1,3 +1,6 @@
+#ifndef EL_BLAS_LIKE_LEVEL1_INSTANTIATE_CPP
+#define EL_BLAS_LIKE_LEVEL1_INSTANTIATE_CPP
+
 /*
    Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
@@ -6,10 +9,7 @@
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#ifndef EL_BLAS_LIKE_LEVEL3_HPP
-#define EL_BLAS_LIKE_LEVEL3_HPP
+#define EL_INSTANTIATE_BLAS_LEVEL1
+#include "El.hpp"
 
-#include <El/blas_like/level3/decl.hpp>
-#include <El/blas_like/level3/impl.hpp>
-
-#endif /* EL_BLAS_LIKE_LEVEL3_HPP */
+#endif /* EL_BLAS_LIKE_LEVEL1_INSTANTIATE_CPP */
