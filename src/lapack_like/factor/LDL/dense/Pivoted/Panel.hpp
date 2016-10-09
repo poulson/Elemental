@@ -1,12 +1,11 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#pragma once
 #ifndef EL_LDL_PIVOTED_PANEL_HPP
 #define EL_LDL_PIVOTED_PANEL_HPP
 
@@ -23,7 +22,7 @@ SelectFromPanel
   LDLPivotType pivotType,
   Base<F> gamma )
 {
-    DEBUG_ONLY(CSE cse("ldl::pivot::SelectFromPanel"))
+    DEBUG_CSE
     LDLPivot pivot;
     switch( pivotType )
     {
@@ -43,7 +42,7 @@ SelectFromPanel
   const DistMatrix<F,MR,STAR>& Y, 
   LDLPivotType pivotType, Base<F> gamma )
 {
-    DEBUG_ONLY(CSE cse("ldl::pivot::SelectFromPanel"))
+    DEBUG_CSE
     LDLPivot pivot;
     switch( pivotType )
     {
@@ -71,7 +70,7 @@ Panel
   LDLPivotType pivotType=BUNCH_KAUFMAN_A, 
   Base<F> gamma=0 )
 {
-    DEBUG_ONLY(CSE cse("ldl::pivot::Panel"))
+    DEBUG_CSE
     const Int nFull = AFull.Height();
     auto A = AFull( IR(off,nFull), IR(off,nFull) );
     const Int n = A.Height();
@@ -102,7 +101,7 @@ Panel
             const auto diagMax = VectorMaxAbsLoc( GetDiagonal(ABR) );
             SymmetricSwap
             ( LOWER, AFull, off+k, off+k+diagMax.index, conjugate );
-            PFull.RowSwap( off+k, off+k+diagMax.index );
+            PFull.Swap( off+k, off+k+diagMax.index );
             RowSwap( X0, k, k+diagMax.index );
             RowSwap( Y0, k, k+diagMax.index );
         }
@@ -118,7 +117,7 @@ Panel
 
         // Apply the symmetric pivot
         SymmetricSwap( LOWER, AFull, off+to, off+from, conjugate );
-        PFull.RowSwap( off+to, off+from );
+        PFull.Swap( off+to, off+from );
         RowSwap( X0, to, from );
         RowSwap( Y0, to, from );
 
@@ -135,7 +134,7 @@ Panel
                 aB1.MakeReal(0,0);
 
             // Store x21 := a21/delta11 and y21 := a21
-            const F delta11Inv = F(1)/A.Get(k,k);
+            const F delta11Inv = F(1)/A(k,k);
             auto a21 = A( ind2, ind1 );
             auto x21 = X( ind2, ind1 ); 
             auto y21 = Y( ind2, ind1 ); 
@@ -153,7 +152,7 @@ Panel
             auto XB0 = X( indB, ind0 );
             auto Y10 = Y( ind1, ind0 );
             auto AB1 = A( indB, ind1 );
-            const F psi = AB1.Get(0,1);
+            const F psi = AB1(0,1);
             Gemm( NORMAL, TRANSPOSE, F(-1), XB0, Y10, F(1), AB1 );
             AB1.Set(0,1,psi);
             if( conjugate )
@@ -171,12 +170,17 @@ Panel
                 Conjugate( A21, Y21 );
             else
                 Y21 = A21;
-            Symmetric2x2Solve( RIGHT, LOWER, D11, A21, conjugate );
+            
+            auto D11Inv = D11;
+            Symmetric2x2Inv( LOWER, D11Inv, conjugate );
+            MakeSymmetric( LOWER, D11Inv, conjugate );
+            Transform2x2Cols( D11Inv, A21, 0, 1 );
+
             X21 = A21;
 
             // Only leave the main diagonal of D in A, so that routines like
             // Trsm can still be used. Thus, return the subdiagonal.
-            dSub.Set( k, 0, D11.Get(1,0) );
+            dSub.Set( k, 0, D11(1,0) );
             D11.Set( 1, 0, F(0) );
         }
         k += pivot.nb;
@@ -197,7 +201,7 @@ Panel
   LDLPivotType pivotType=BUNCH_KAUFMAN_A,
   Base<F> gamma=0 )
 {
-    DEBUG_ONLY(CSE cse("ldl::pivot::Panel"))
+    DEBUG_CSE
     const Int nFull = AFull.Height();
     auto A = AFull( IR(off,nFull), IR(off,nFull) );
     const Int n = A.Height();
@@ -215,7 +219,8 @@ Panel
           LogicError("dSub is the wrong size" );
     )
 
-    DistMatrix<F,STAR,STAR> D11_STAR_STAR( A.Grid() );
+    DistMatrix<F,STAR,STAR> D11_STAR_STAR( A.Grid() ),
+                            D11Inv_STAR_STAR( A.Grid() );
 
     Int k=0;
     while( k < bsize )
@@ -233,7 +238,7 @@ Panel
             const auto diagMax = VectorMaxAbsLoc( GetDiagonal(ABR) );
             SymmetricSwap
             ( LOWER, AFull, off+k, off+k+diagMax.index, conjugate );
-            PFull.RowSwap( off+k, off+k+diagMax.index );
+            PFull.Swap( off+k, off+k+diagMax.index );
             RowSwap( X0, k, k+diagMax.index );
             RowSwap( Y0, k, k+diagMax.index );
         }
@@ -249,7 +254,7 @@ Panel
 
         // Apply the symmetric pivot
         SymmetricSwap( LOWER, AFull, off+to, off+from, conjugate );
-        PFull.RowSwap( off+to, off+from );
+        PFull.Swap( off+to, off+from );
         RowSwap( X0, to, from );
         RowSwap( Y0, to, from );
 
@@ -307,7 +312,12 @@ Panel
             else
                 Y21 = A21;
             D11_STAR_STAR = D11;
-            Symmetric2x2Solve( RIGHT, LOWER, D11_STAR_STAR, A21, conjugate );
+
+            D11Inv_STAR_STAR = D11_STAR_STAR;
+            Symmetric2x2Inv( LOWER, D11Inv_STAR_STAR.Matrix(), conjugate );
+            MakeSymmetric( LOWER, D11Inv_STAR_STAR.Matrix(), conjugate );
+            Transform2x2Cols( D11Inv_STAR_STAR, A21, 0, 1 );
+
             X21 = A21;
 
             // Only leave the main diagonal of D in A, so that routines like

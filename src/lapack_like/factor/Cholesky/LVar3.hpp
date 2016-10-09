@@ -1,12 +1,11 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#pragma once
 #ifndef EL_CHOLESKY_LVAR3_HPP
 #define EL_CHOLESKY_LVAR3_HPP
 
@@ -14,73 +13,67 @@ namespace El {
 namespace cholesky {
 
 template<typename F>
-inline void
-LVar3Unb( Matrix<F>& A )
+void LVar3Unb( Matrix<F>& A )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("cholesky::LVar3Unb");
       if( A.Height() != A.Width() )
           LogicError("Can only compute Cholesky factor of square matrices");
     )
     typedef Base<F> Real;
     const Int n = A.Height();
-    const Int lda = A.LDim();
-    F* ABuffer = A.Buffer();
+    const Int ALDim = A.LDim();
     for( Int j=0; j<n; ++j )
     {
-        Real alpha11 = RealPart(ABuffer[j+j*lda]);
+        Real alpha11 = RealPart(A(j,j));
         if( alpha11 <= Real(0) )
             LogicError("A was not numerically HPD");
         alpha11 = Sqrt( alpha11 );
-        ABuffer[j+j*lda] = alpha11;
+        A(j,j) = alpha11;
 
         const Int a21Height = n-(j+1);
-        F* a21 = &ABuffer[(j+1)+ j   *lda];
-        F* A22 = &ABuffer[(j+1)+(j+1)*lda];
+        F* a21 = A.Buffer(j+1,j  );
+        F* A22 = A.Buffer(j+1,j+1);
 
         blas::Scal( a21Height, Real(1)/alpha11, a21, 1 );
-        blas::Her( 'L', a21Height, -Real(1), a21, 1, A22, lda );
+        blas::Her( 'L', a21Height, -Real(1), a21, 1, A22, ALDim );
     }
 }
 
 template<typename F>
-inline void
-ReverseLVar3Unb( Matrix<F>& A )
+void ReverseLVar3Unb( Matrix<F>& A )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("cholesky::ReverseLVar3Unb");
       if( A.Height() != A.Width() )
           LogicError("Can only compute Cholesky factor of square matrices");
     )
     typedef Base<F> Real;
     const Int n = A.Height();
-    const Int lda = A.LDim();
-    F* ABuffer = A.Buffer();
     for( Int j=n-1; j>=0; --j )
     {
-        Real alpha = RealPart(ABuffer[j+j*lda]);
+        Real alpha = RealPart(A(j,j));
         if( alpha <= Real(0) )
             LogicError("A was not numerically HPD");
         alpha = Sqrt( alpha );
-        ABuffer[j+j*lda] = alpha;
+        A(j,j) = alpha;
 
         // TODO: Switch to BLAS calls
 
         for( Int k=0; k<j; ++k )
-            ABuffer[j+k*lda] /= alpha;
+            A(j,k) /= alpha;
 
         for( Int k=0; k<j; ++k )
             for( Int i=k; i<j; ++i )
-                ABuffer[i+k*lda] -= ABuffer[j+k*lda]*Conj(ABuffer[j+i*lda]);
+                A(i,k) -= A(j,k)*Conj(A(j,i));
     }
 }
 
 template<typename F>
-inline void
-LVar3( Matrix<F>& A )
+void LVar3( Matrix<F>& A )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("cholesky::LVar3");
       if( A.Height() != A.Width() )
           LogicError("Can only compute Cholesky factor of square matrices");
     )
@@ -104,11 +97,10 @@ LVar3( Matrix<F>& A )
 }
 
 template<typename F>
-inline void
-ReverseLVar3( Matrix<F>& A )
+void ReverseLVar3( Matrix<F>& A )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("cholesky::ReverseLVar3");
       if( A.Height() != A.Width() )
           LogicError("Can only compute Cholesky factor of square matrices");
     )
@@ -133,11 +125,10 @@ ReverseLVar3( Matrix<F>& A )
 } 
 
 template<typename F>
-inline void
-LVar3( AbstractDistMatrix<F>& APre )
+void LVar3( AbstractDistMatrix<F>& APre )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("cholesky::LVar3");
       if( APre.Height() != APre.Width() )
           LogicError("Can only compute Cholesky factor of square matrices");
     )
@@ -152,8 +143,6 @@ LVar3( AbstractDistMatrix<F>& APre )
     DistMatrix<F,STAR,MC  > A21Trans_STAR_MC(g);
     DistMatrix<F,STAR,MR  > A21Adj_STAR_MR(g);
 
-    Timer panelTimer, trrkTimer;
-
     const Int n = A.Height();
     const Int bsize = Blocksize();
     for( Int k=0; k<n; k+=bsize )
@@ -167,8 +156,6 @@ LVar3( AbstractDistMatrix<F>& APre )
         auto A21 = A( ind2, ind1 );
         auto A22 = A( ind2, ind2 );
 
-        panelTimer.Start();
-
         A11_STAR_STAR = A11;
         Cholesky( LOWER, A11_STAR_STAR );
         A11 = A11_STAR_STAR;
@@ -177,8 +164,6 @@ LVar3( AbstractDistMatrix<F>& APre )
         A21_VC_STAR = A21;
         LocalTrsm
         ( RIGHT, LOWER, ADJOINT, NON_UNIT, F(1), A11_STAR_STAR, A21_VC_STAR );
-
-        panelTimer.Stop();
 
         A21_VR_STAR.AlignWith( A22 );
         A21_VR_STAR = A21_VC_STAR;
@@ -189,27 +174,19 @@ LVar3( AbstractDistMatrix<F>& APre )
 
         // (A21^T[* ,MC])^T A21^H[* ,MR] = A21[MC,* ] A21^H[* ,MR]
         //                               = (A21 A21^H)[MC,MR]
-        trrkTimer.Start();
         LocalTrrk
         ( LOWER, TRANSPOSE, 
           F(-1), A21Trans_STAR_MC, A21Adj_STAR_MR, F(1), A22 );
-        trrkTimer.Stop();
 
         Transpose( A21Trans_STAR_MC, A21 );
-    }
-    if( g.Rank() == 0 )
-    {
-        Output("  Panel time: ",panelTimer.Total()," seconds");
-        Output("  Trrk time:  ",trrkTimer.Total()," seconds");
     }
 } 
 
 template<typename F>
-inline void
-ReverseLVar3( AbstractDistMatrix<F>& APre )
+void ReverseLVar3( AbstractDistMatrix<F>& APre )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("cholesky::ReverseLVar3");
       if( APre.Height() != APre.Width() )
           LogicError("Can only compute Cholesky factor of square matrices");
     )

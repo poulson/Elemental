@@ -1,20 +1,22 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#include "El.hpp"
-#include "El.h"
+#include <El-lite.hpp>
+#include <El/lapack_like/factor.hpp>
+#include <El-lite.h>
+#include <El/lapack_like/factor.h>
 using namespace El;
 
 extern "C" {
 
 ElError ElRegSolveCtrlDefault_s( ElRegSolveCtrl_s* ctrl )
 {
-    const float eps = Epsilon<float>();
+    const float eps = limits::Epsilon<float>();
     ctrl->alg = EL_REG_SOLVE_FGMRES;
     ctrl->relTol = Pow(eps,float(0.5));
     ctrl->relTolRefine = Pow(eps,float(0.8));
@@ -28,7 +30,7 @@ ElError ElRegSolveCtrlDefault_s( ElRegSolveCtrl_s* ctrl )
 
 ElError ElRegSolveCtrlDefault_d( ElRegSolveCtrl_d* ctrl )
 {
-    const double eps = Epsilon<double>();
+    const double eps = limits::Epsilon<double>();
     ctrl->alg = EL_REG_SOLVE_FGMRES;
     ctrl->relTol = Pow(eps,0.5);
     ctrl->relTolRefine = Pow(eps,0.8);
@@ -671,6 +673,6 @@ ElError ElQRCtrlDefault_d( ElQRCtrl_d* ctrl )
       *CReflect(u), *CReflect(v), conjugate, tau ) ) }
 
 #define EL_NO_INT_PROTO
-#include "El/macros/CInstantiate.h"
+#include <El/macros/CInstantiate.h>
 
 } // extern "C"

@@ -1,12 +1,11 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#pragma once
 #ifndef EL_DISTMATRIX_ELEMENTAL_HPP
 #define EL_DISTMATRIX_ELEMENTAL_HPP
 
@@ -57,16 +56,6 @@ public:
     void AlignRowsWith
     ( const El::DistData& data,
       bool constrain=true, bool allowMismatch=false ) override;
-
-    void AlignWith
-    ( const ElementalData& data,
-      bool constrain=true, bool allowMismatch=false );
-    void AlignColsWith
-    ( const ElementalData& data,
-      bool constrain=true, bool allowMismatch=false );
-    void AlignRowsWith
-    ( const ElementalData& data,
-      bool constrain=true, bool allowMismatch=false );
 
     void AlignAndResize
     ( int colAlign, int rowAlign, Int height, Int width, 
@@ -145,8 +134,6 @@ public:
     // =====================
     bool DiagonalAlignedWith
     ( const El::DistData& d, Int offset=0 ) const override EL_NO_EXCEPT;
-    bool DiagonalAlignedWith
-    ( const ElementalData& d, Int offset=0 ) const EL_NO_EXCEPT;
     int DiagonalRoot( Int offset=0 ) const override EL_NO_EXCEPT;
     int DiagonalAlign( Int offset=0 ) const override EL_NO_EXCEPT;
 
@@ -154,7 +141,7 @@ protected:
     // Protected constructors
     // ======================
     // Create a 0 x 0 distributed matrix
-    ElementalMatrix( const El::Grid& g=DefaultGrid(), int root=0 );
+    ElementalMatrix( const El::Grid& g=Grid::Default(), int root=0 );
 
 private:
     // Exchange metadata with another matrix

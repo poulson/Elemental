@@ -48,7 +48,7 @@ endif ()
 #
 ### Check for needed compiler flags
 #
-include(${CMAKE_CURRENT_LIST_DIR}/CheckCXXCompilerFlag.cmake)
+include(CheckCXXCompilerFlag)
 
 function(test_set_flag FLAG NAME)
     check_cxx_compiler_flag("${FLAG}" _HAS_${NAME}_FLAG)
@@ -69,6 +69,12 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" AND WIN32)
     if (NOT CXX11_COMPILER_FLAGS)
         test_set_flag("/Qstd=c++0x" CXX0x)
     endif ()
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # GCC needs -std=gnu++11 for the libquadmath literals; Intel does not
+    test_set_flag("-std=gnu++11" CXX11) 
+    if (NOT CXX11_COMPILER_FLAGS)
+        message(FATAL_ERROR "Could not use -std=gnu++11 with GCC")
+    endif()
 else ()
     test_set_flag("-std=c++11" CXX11)
     if (NOT CXX11_COMPILER_FLAGS)
@@ -158,7 +164,7 @@ foreach (_cxx_feature IN LISTS CXXFEATURES_FIND_COMPONENTS)
     cxx_check_feature(${_cxx_feature} ${FEATURE_NAME})
 endforeach (_cxx_feature)
 
-include(${CMAKE_CURRENT_LIST_DIR}/FindPackageHandleStandardArgs.cmake)
+include(FindPackageHandleStandardArgs)
 set(DUMMY_VAR TRUE)
 find_package_handle_standard_args(CXXFeatures REQUIRED_VARS DUMMY_VAR HANDLE_COMPONENTS)
 unset(DUMMY_VAR)

@@ -1,12 +1,11 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#pragma once
 #ifndef EL_LDL_PIVOTED_UNBLOCKED_HPP
 #define EL_LDL_PIVOTED_UNBLOCKED_HPP
 
@@ -15,10 +14,10 @@ namespace ldl {
 namespace pivot {
 
 template<typename F>
-inline LDLPivot
+LDLPivot
 Select( const Matrix<F>& A, LDLPivotType pivotType, Base<F> gamma )
 {
-    DEBUG_ONLY(CSE cse("ldl::pivot::Select"))
+    DEBUG_CSE
     LDLPivot pivot;
     switch( pivotType )
     {
@@ -32,10 +31,10 @@ Select( const Matrix<F>& A, LDLPivotType pivotType, Base<F> gamma )
 }
 
 template<typename F>
-inline LDLPivot
+LDLPivot
 Select( const DistMatrix<F>& A, LDLPivotType pivotType, Base<F> gamma )
 {
-    DEBUG_ONLY(CSE cse("ldl::pivot::Select"))
+    DEBUG_CSE
     LDLPivot pivot;
     switch( pivotType )
     {
@@ -50,7 +49,7 @@ Select( const DistMatrix<F>& A, LDLPivotType pivotType, Base<F> gamma )
 
 // Unblocked sequential pivoted LDL
 template<typename F>
-inline void
+void
 Unblocked
 ( Matrix<F>& A,
   Matrix<F>& dSub,
@@ -59,8 +58,8 @@ Unblocked
   LDLPivotType pivotType=BUNCH_KAUFMAN_A,
   Base<F> gamma=0 )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("ldl::pivot::Unblocked");
       if( A.Height() != A.Width() )
           LogicError("A must be square");
     )
@@ -97,7 +96,7 @@ Unblocked
         {
             const Int from = k + pivot.from[l];
             SymmetricSwap( LOWER, A, k+l, from, conjugate );
-            P.RowSwap( k+l, from );
+            P.Swap( k+l, from );
         }
 
         // Update trailing submatrix and store pivots
@@ -106,7 +105,7 @@ Unblocked
         if( pivot.nb == 1 )
         {
             // Rank-one update: A22 -= a21 inv(delta11) a21'
-            const F delta11Inv = F(1)/ABR.Get(0,0);
+            const F delta11Inv = F(1)/ABR(0,0);
             auto a21 = A( ind2, ind1 );
             auto A22 = A( ind2, ind2 );
             Syr( LOWER, -delta11Inv, a21, A22, conjugate );
@@ -119,20 +118,24 @@ Unblocked
             auto A21 = A( ind2, ind1 );
             auto A22 = A( ind2, ind2 );
             Y21 = A21;
-            Symmetric2x2Solve( RIGHT, LOWER, D11, A21, conjugate );
+
+            auto D11Inv = D11;
+            Symmetric2x2Inv( LOWER, D11Inv, conjugate );
+            MakeSymmetric( LOWER, D11Inv, conjugate );
+            Transform2x2Cols( D11Inv, A21, 0, 1 );
             Trr2( LOWER, F(-1), A21, Y21, A22, conjugate );
 
             // Only leave the main diagonal of D in A, so that routines like
             // Trsm can still be used. Thus, return the subdiagonal.
-            dSub.Set( k, 0, D11.Get(1,0) );
-            D11.Set( 1, 0, 0 );
+            dSub(k) = D11(1,0);
+            D11(1,0) = 0;
         }
         k += pivot.nb;
     }
 }
 
 template<typename F>
-inline void
+void
 Unblocked
 ( ElementalMatrix<F>& APre,
   ElementalMatrix<F>& dSub, 
@@ -141,8 +144,8 @@ Unblocked
   LDLPivotType pivotType=BUNCH_KAUFMAN_A,
   Base<F> gamma=0 )
 {
+    DEBUG_CSE
     DEBUG_ONLY(
-      CSE cse("ldl::pivot::Unblocked");
       if( APre.Height() != APre.Width() )
           LogicError("A must be square");
       AssertSameGrids( APre, dSub );
@@ -159,7 +162,7 @@ Unblocked
     auto& A = AProx.Get();
 
     DistMatrix<F> Y21(g);
-    DistMatrix<F,STAR,STAR> D11_STAR_STAR(g);
+    DistMatrix<F,STAR,STAR> D11_STAR_STAR(g), D11Inv_STAR_STAR(g);
 
     Int k=0;
     while( k < n )
@@ -180,7 +183,7 @@ Unblocked
         {
             const Int from = k + pivot.from[l];
             SymmetricSwap( LOWER, A, k+l, from, conjugate );
-            P.RowSwap( k+l, from );
+            P.Swap( k+l, from );
         }
 
 
@@ -204,7 +207,12 @@ Unblocked
             auto A22 = A( ind2, ind2 );
             Y21 = A21;
             D11_STAR_STAR = D11;
-            Symmetric2x2Solve( RIGHT, LOWER, D11_STAR_STAR, A21, conjugate );
+
+            D11Inv_STAR_STAR = D11_STAR_STAR;
+            Symmetric2x2Inv( LOWER, D11Inv_STAR_STAR.Matrix(), conjugate );
+            MakeSymmetric( LOWER, D11Inv_STAR_STAR.Matrix(), conjugate );
+            Transform2x2Cols( D11Inv_STAR_STAR, A21, 0, 1 );
+
             Trr2( LOWER, F(-1), A21, Y21, A22, conjugate );
 
             // Only leave the main diagonal of D in A, so that routines like

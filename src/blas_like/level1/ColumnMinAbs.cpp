@@ -1,26 +1,27 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#include "El.hpp"
+#include <El-lite.hpp>
+#include <El/blas_like/level1.hpp>
 
 namespace El {
 
 template<typename F>
 void ColumnMinAbs( const Matrix<F>& X, Matrix<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbs"))
+    DEBUG_CSE
     typedef Base<F> Real;
     const Int m = X.Height();
     const Int n = X.Width();
     mins.Resize( n, 1 );
     for( Int j=0; j<n; ++j )
     {
-        Real colMin = std::numeric_limits<Real>::max();
+        Real colMin = limits::Max<Real>();
         for( Int i=0; i<m; ++i )
             colMin = Min(colMin,Abs(X.Get(i,j)));
         mins.Set( j, 0, colMin );
@@ -33,7 +34,7 @@ void ColumnMinAbsNonzero
   const Matrix<Base<F>>& upperBounds,
         Matrix<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbsNonzero"))
+    DEBUG_CSE
     typedef Base<F> Real;
     const Int m = X.Height();
     const Int n = X.Width();
@@ -55,7 +56,7 @@ template<typename F,Dist U,Dist V>
 void ColumnMinAbs
 ( const DistMatrix<F,U,V>& A, DistMatrix<Base<F>,V,STAR>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbs"))
+    DEBUG_CSE
     const Int n = A.Width();
     mins.AlignWith( A );
     mins.Resize( n, 1 );
@@ -69,7 +70,7 @@ void ColumnMinAbsNonzero
   const DistMatrix<Base<F>,V,STAR>& upperBounds,
         DistMatrix<Base<F>,V,STAR>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbsNonzero"))
+    DEBUG_CSE
     if( upperBounds.ColAlign() != A.RowAlign() )
         LogicError("upperBounds was not properly aligned");
     const Int n = A.Width();
@@ -83,7 +84,7 @@ void ColumnMinAbsNonzero
 template<typename F>
 void ColumnMinAbs( const DistMultiVec<F>& X, Matrix<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbs"))
+    DEBUG_CSE
     ColumnMinAbs( X.LockedMatrix(), mins );
     AllReduce( mins, X.Comm(), mpi::MIN );
 }
@@ -94,7 +95,7 @@ void ColumnMinAbsNonzero
   const Matrix<Base<F>>& upperBounds, 
         Matrix<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbsNonzero"))
+    DEBUG_CSE
     ColumnMinAbsNonzero( X.LockedMatrix(), upperBounds, mins );
     AllReduce( mins, X.Comm(), mpi::MIN );
 }
@@ -102,7 +103,7 @@ void ColumnMinAbsNonzero
 template<typename F>
 void ColumnMinAbs( const SparseMatrix<F>& A, Matrix<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbs"))
+    DEBUG_CSE
     // Explicitly forming the transpose is overkill...
     // The following would be correct but is best avoided.
     /*
@@ -118,8 +119,8 @@ void ColumnMinAbs( const SparseMatrix<F>& A, Matrix<Base<F>>& mins )
     typedef Base<F> Real;
     const Int m = A.Height();
     const Int n = A.Width();
-    Zeros( mins, n, 1 );
-    Fill( mins, std::numeric_limits<Real>::max() );
+    mins.Resize( n, 1 );
+    Fill( mins, limits::Max<Real>() );
     const Int* colBuf = A.LockedTargetBuffer();
     const Int* offsetBuf = A.LockedOffsetBuffer();
     const F* values = A.LockedValueBuffer();
@@ -136,7 +137,7 @@ void ColumnMinAbsNonzero
   const Matrix<Base<F>>& upperBounds,
         Matrix<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbsNonzero"))
+    DEBUG_CSE
     // Explicitly forming the transpose is overkill...
     // The following would be correct but is best avoided.
     /*
@@ -171,7 +172,7 @@ template<typename F>
 void ColumnMinAbs
 ( const DistSparseMatrix<F>& A, DistMultiVec<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbs"))
+    DEBUG_CSE
     typedef Base<F> Real;
     // Explicitly forming the transpose is overkill...
     // The following would be correct but is best avoided.
@@ -183,14 +184,14 @@ void ColumnMinAbs
 
     // Modify the communication pattern from an adjoint Multiply
     // =========================================================
-    Zeros( mins, A.Width(), 1 );
-    Fill( mins, std::numeric_limits<Real>::max() );
+    mins.Resize( A.Width(), 1 );
+    Fill( mins, limits::Max<Real>() );
     A.InitializeMultMeta();
-    const auto& meta = A.multMeta;
+    const auto& meta = A.LockedDistGraph().multMeta;
 
     // Pack the send values 
     // --------------------
-    vector<Real> sendVals( meta.numRecvInds, std::numeric_limits<Real>::max() );
+    vector<Real> sendVals( meta.numRecvInds, limits::Max<Real>() );
     {
         const Int ALocalHeight = A.LocalHeight();
         const Int* offsetBuf = A.LockedOffsetBuffer();
@@ -228,7 +229,7 @@ void ColumnMinAbsNonzero
   const DistMultiVec<Base<F>>& upperBounds,
         DistMultiVec<Base<F>>& mins )
 {
-    DEBUG_ONLY(CSE cse("ColumnMinAbsNonzero"))
+    DEBUG_CSE
     typedef Base<F> Real;
     // Explicitly forming the transpose is overkill...
     // The following would be correct but is best avoided.
@@ -242,11 +243,11 @@ void ColumnMinAbsNonzero
     // =========================================================
     mins = upperBounds;
     A.InitializeMultMeta();
-    const auto& meta = A.multMeta;
+    const auto& meta = A.LockedDistGraph().multMeta;
 
     // Pack the send values 
     // --------------------
-    vector<Real> sendVals( meta.numRecvInds, std::numeric_limits<Real>::max() );
+    vector<Real> sendVals( meta.numRecvInds, limits::Max<Real>() );
     {
         const Int ALocalHeight = A.LocalHeight();
         const Int* offsetBuf = A.LockedOffsetBuffer();
@@ -332,7 +333,10 @@ void ColumnMinAbsNonzero
   PROTO_DIST(F,VR,  STAR)
 
 #define EL_NO_INT_PROTO
+#define EL_ENABLE_DOUBLEDOUBLE
+#define EL_ENABLE_QUADDOUBLE
 #define EL_ENABLE_QUAD
-#include "El/macros/Instantiate.h"
+#define EL_ENABLE_BIGFLOAT
+#include <El/macros/Instantiate.h>
 
 } // namespace El

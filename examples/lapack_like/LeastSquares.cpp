@@ -1,12 +1,12 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#include "El.hpp"
+#include <El.hpp>
 using namespace El;
 
 typedef double Real;
@@ -71,7 +71,7 @@ main( int argc, char* argv[] )
             Gemm( orientation, NORMAL, F(1), A, X, F(-1), R );
 
             // Compute the relevant Frobenius norms and a relative residual
-            const Real eps = Epsilon<Real>();
+            const Real eps = limits::Epsilon<Real>();
             const Real AFrobNorm = FrobeniusNorm( A );
             const Real BFrobNorm = FrobeniusNorm( B );
             const Real XFrobNorm = FrobeniusNorm( X );

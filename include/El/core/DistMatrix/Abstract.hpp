@@ -1,12 +1,11 @@
 /*
-   Copyright (c) 2009-2015, Jack Poulson
+   Copyright (c) 2009-2016, Jack Poulson
    All rights reserved.
 
    This file is part of Elemental and is under the BSD 2-Clause License, 
    which can be found in the LICENSE file in the root directory, or at 
    http://opensource.org/licenses/BSD-2-Clause
 */
-#pragma once
 #ifndef EL_DISTMATRIX_ABSTRACT_HPP
 #define EL_DISTMATRIX_ABSTRACT_HPP
 
@@ -332,7 +331,7 @@ protected:
     // Protected constructors
     // ======================
     // Create a 0 x 0 distributed matrix
-    AbstractDistMatrix( const El::Grid& g=DefaultGrid(), int root=0 );
+    AbstractDistMatrix( const El::Grid& g=Grid::Default(), int root=0 );
 
     // Modify the distribution metadata
     // ================================
@@ -349,36 +348,6 @@ private:
     template<typename S> friend class ElementalMatrix;
     template<typename S> friend class BlockMatrix;
 };
-
-struct DistData
-{
-    Dist colDist, rowDist;
-    Int blockHeight, blockWidth;
-    int colAlign, rowAlign;
-    Int colCut, rowCut;
-    int root;  // relevant for [o ,o ]/[MD,* ]/[* ,MD]
-    const Grid* grid;
-
-    DistData() { }
-
-    template<typename scalarType>
-    DistData( const BlockMatrix<scalarType>& A )
-    : colDist(A.ColDist()), rowDist(A.RowDist()),
-      blockHeight(A.BlockHeight()), blockWidth(A.BlockWidth()),
-      colAlign(A.ColAlign()), rowAlign(A.RowAlign()),
-      colCut(A.ColCut()), rowCut(A.RowCut()),
-      root(A.Root()), grid(&A.Grid())
-    { }
-};
-inline bool operator==( const DistData& A, const DistData& B )
-{ return A.colDist     == B.colDist &&
-         A.rowDist     == B.rowDist &&
-         A.blockHeight == B.blockHeight &&
-         A.blockWidth  == B.blockWidth &&
-         A.colAlign    == B.colAlign &&
-         A.rowAlign    == B.rowAlign &&
-         A.root        == B.root &&
-         A.grid        == B.grid; }
 
 struct ElementalData
 {
@@ -403,6 +372,48 @@ inline bool operator==( const ElementalData& A, const ElementalData& B )
          A.rowAlign == B.rowAlign &&
          A.root     == B.root &&
          A.grid     == B.grid; }
+inline bool operator!=( const ElementalData& A, const ElementalData& B )
+{ return !(A == B); }
+
+struct DistData
+{
+    Dist colDist, rowDist;
+    Int blockHeight, blockWidth;
+    int colAlign, rowAlign;
+    Int colCut, rowCut;
+    int root;  // relevant for [o ,o ]/[MD,* ]/[* ,MD]
+    const Grid* grid;
+
+    DistData() { }
+
+    DistData( const ElementalData& data )
+    : colDist(data.colDist), rowDist(data.rowDist),
+      blockHeight(1), blockWidth(1),
+      colAlign(data.colAlign), rowAlign(data.rowAlign),
+      colCut(0), rowCut(0),
+      root(data.root), grid(data.grid)
+    { }
+
+    template<typename scalarType>
+    DistData( const AbstractDistMatrix<scalarType>& A )
+    : colDist(A.ColDist()), rowDist(A.RowDist()),
+      blockHeight(A.BlockHeight()), blockWidth(A.BlockWidth()),
+      colAlign(A.ColAlign()), rowAlign(A.RowAlign()),
+      colCut(A.ColCut()), rowCut(A.RowCut()),
+      root(A.Root()), grid(&A.Grid())
+    { }
+};
+inline bool operator==( const DistData& A, const DistData& B )
+{ return A.colDist     == B.colDist &&
+         A.rowDist     == B.rowDist &&
+         A.blockHeight == B.blockHeight &&
+         A.blockWidth  == B.blockWidth &&
+         A.colAlign    == B.colAlign &&
+         A.rowAlign    == B.rowAlign &&
+         A.root        == B.root &&
+         A.grid        == B.grid; }
+inline bool operator!=( const DistData& A, const DistData& B )
+{ return !(A == B); }
 
 } // namespace El
 
