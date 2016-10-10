@@ -75,7 +75,7 @@ main( int argc, char* argv[] )
         //           'Tuning' section of the README for details.
         DistMatrix<Real,VR,STAR> w( g );
         DistMatrix<C> X( g );
-        HermitianEig( LOWER, H, w, X, ASCENDING ); 
+        HermitianEig( LOWER, H, w, X); 
 
         if( print )
         {
