@@ -25,7 +25,7 @@ include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 # Define the header files installation rules
 # ------------------------------------------
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
-  DESTINATION DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
 if(WIN32 OR APPLE OR NOT EL_HYBRID)
   # Disable for Windows because of lack of POSIX support;
