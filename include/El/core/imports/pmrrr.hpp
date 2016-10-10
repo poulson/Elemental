@@ -10,7 +10,7 @@
 #ifndef EL_IMPORTS_PMRRR_HPP
 #define EL_IMPORTS_PMRRR_HPP
 
-#include "El.hpp"
+#include <El-lite.hpp>
 
 #include <pmrrr/pmrrr.hpp>
 
