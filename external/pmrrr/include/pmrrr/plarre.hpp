@@ -148,7 +148,6 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 	       val_t<FloatingType> *Wstruct, tol_t<FloatingType> *tolstruct, int *nzp, int *offsetp)
 {
   /* input variables */
-  int              pid    = procinfo->pid;
   int              nproc  = procinfo->nproc;
   bool             wantZ  = (jobz[0]  == 'V' || jobz[0]  == 'v');
   bool             cntval = (jobz[0]  == 'C' || jobz[0]  == 'c');
@@ -205,7 +204,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
   } else if (range[0] == 'I' || range[0] == 'i') {
     irange = indrng;
   } else {
-    return(1);
+    return 1;
   }
 
   /* allocate work space */
@@ -283,7 +282,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
     /* clean up and return */
     *nzp = iceil(*iu-*il+1, nproc);
     clean_up_plarre(E2, work, iwork, rcount, rdispl);
-    return(0);
+    return 0;
   }
 
 
@@ -321,7 +320,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 	ilast_tmp = ifirst_tmp + chunk - 1;
 	ilast_tmp = imin(ilast_tmp, iiu);
       }
-      if (i == pid) {
+      if (i == procinfo->pid) {
 	ifirst    = ifirst_tmp;
 	ilast     = ilast_tmp;
 	isize     = ilast - ifirst + 1;
@@ -418,7 +417,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
   /* free memory */
   clean_up_plarre(E2, work, iwork, rcount, rdispl);
   
-  return(0);
+  return 0;
 }
   
 	namespace {
@@ -436,142 +435,173 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  free(rcount);
 		  free(rdispl);
 		}
-
-		template<typename FloatingType> 
-		int eigval_approx_proc(proc_t *procinfo, int ifirst, int ilast, 
-					   int n, FloatingType *D, FloatingType *E, FloatingType *E2,  
-					   int *Windex, int *iblock, FloatingType *gersch, tol_t<FloatingType> *tolstruct, 
-					   FloatingType *W, FloatingType *Werr, FloatingType *Wgap, FloatingType *work,
-					   int *iwork)
-		{
-		  /* Input parameter */
-		  int              pid = procinfo->pid;
-		  int              isize        = ilast-ifirst+1;
-		  FloatingType       pivmin       = tolstruct->pivmin;
-
-		  /* double gl, gu, wl, wu; */
-		  FloatingType wl, wu;
-
-		  /* Tolerances */
-		  FloatingType bsrtol;
-
-		  /* /\* Multithreading *\/ */
-		  int            nthreads;
-		  int              max_nthreads = procinfo->nthreads;
-		  int            iifirst, iilast, chunk;
-		  pthread_t      *threads;
-		  pthread_attr_t attr;
-		  auxarg1_t<FloatingType>      *auxarg1;
-		  void           *status;
-
-		  /* Others */
-		  int    nsplit, *isplit;
-		  int    info, m, i, j;
-		  FloatingType dummy;
-		  
-		  /* Allocate workspace */
-		  isplit = (int *) malloc( n * sizeof(int) );
-		  assert(isplit != NULL);
-		  threads = (pthread_t *) malloc( max_nthreads * sizeof(pthread_t) );
-		  assert(threads != NULL);
-
-		  /* This is an unreduced block */
-		  nsplit = 1;
-		  isplit[0] = n;
-		  
-		  if (max_nthreads > 1) {
-			pthread_attr_init(&attr);
-			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-			pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-		  }
-
-		  /* Set tolerance parameters */
-		  bsrtol = sqrt(std::numeric_limits<FloatingType>::epsilon());    
-
-
-		  /* APPROXIMATE EIGENVALUES */
-
-		  /* compute approximations of the eigenvalues with muliple threads */
-		  /* equivalent to: */
-		  /* dlarrd_("I", "B", &n, &dummy, &dummy, &ifirst, &ilast, gersch, */
-		  /*         &bsrtol, D, E, E2, &pivmin, &nsplit, isplit, &m, W, Werr, */
-		  /*         &wl, &wu, iblock, Windex, work, iwork, &info); */
-		  /* assert(info == 0); */
-		  /* assert(m == ilast-ifirst+1); */
-		  
-		  nthreads = max_nthreads;
-		  while (nthreads > 1 && isize / nthreads < 2)
-			nthreads--;
-
-		  if (nthreads > 1) {
 		
-			/* each threads computes W[iifirst:iilast] and places them in
-			 * work[0:n-1]; the corresponding errors in work[n:2*n-1];
-			 * the blocks they belong in iwork[0:n-1]; and their indices in
-			 * iwork[n:2*n-1]; */
-		
-			iifirst = ifirst;
-			chunk = isize / nthreads;
-			for (i=1; i<nthreads; i++) {
-			  
-			  iilast = iifirst + chunk - 1;
+		#ifndef DISABLE_PTHREADS
+		    template<typename FloatingType> 
+		    int eigval_approx_proc(proc_t *procinfo, int ifirst, int ilast, 
+					       int n, FloatingType *D, FloatingType *E, FloatingType *E2,  
+					       int *Windex, int *iblock, FloatingType *gersch, tol_t<FloatingType> *tolstruct, 
+					       FloatingType *W, FloatingType *Werr, FloatingType *Wgap, FloatingType *work,
+					       int *iwork)
+		    {
+		      /* Input parameter */
+		      int              isize        = ilast-ifirst+1;
+		      FloatingType       pivmin       = tolstruct->pivmin;
 
-			  auxarg1 = create_auxarg1(n, D, E, E2, ifirst, ilast, iifirst, iilast,
-						   nsplit, isplit, bsrtol, pivmin, gersch,
-						   &work[0], &work[n], &iwork[n], &iwork[0]);
-			  
-			  info = pthread_create(&threads[i], &attr,
-						eigval_subset_thread_a<FloatingType>,
-						(void *) auxarg1);
-			  assert(info == 0);
-			  
-			  iifirst = iilast + 1;
-			}
-			iilast = ilast;
 
-			auxarg1 = create_auxarg1(n, D, E, E2, ifirst, ilast, iifirst, iilast,
-						 nsplit, isplit, bsrtol, pivmin, gersch,
-						 &work[0], &work[n], &iwork[n], &iwork[0]);
-		
-			status = eigval_subset_thread_a<FloatingType>( (void *) auxarg1 );
-			assert(status == NULL);
-		
-			/* join threads */
-			for (i=1; i<nthreads; i++) {
-			  info = pthread_join(threads[i], &status);
-			  assert(info == 0 && status == NULL);
-			}
-		
-			/* m counts the numbers of eigenvalues computed by process */
-			m = isize;
-			for (j=0; j<isize; j++) {
-			  W[j]      = work[j];
-			  Werr[j]   = work[j+n];
-			  iblock[j] = iwork[j];
-			  Windex[j] = iwork[j+n];
-			}
-		
-		  } else {
-			/* no multithreaded computation */
-		
-			lapack::odrrd("I", "B", &n, &dummy, &dummy, &ifirst, &ilast, gersch,
-		  	    &bsrtol, D, E, E2, &pivmin, &nsplit, isplit, &m, W, Werr,
-		  	    &wl, &wu, iblock, Windex, work, iwork, &info);
-			std::cout << info << std::endl;
-			assert(info == 0);
-			assert(m == ilast-ifirst+1);
-		  }
+		      /* /\* Multithreading *\/ */
+		      int              max_nthreads = procinfo->nthreads;
+		      int            iifirst, iilast, chunk;
+		      pthread_t      *threads;
+		      pthread_attr_t attr;
+		      auxarg1_t<FloatingType>      *auxarg1;
 
-		  /* clean up */
-		  free(threads);
-		  free(isplit);
+		      /* Others */
+		      int    info, m, i, j;
+		      FloatingType dummy;
+		      
+		      /* Allocate workspace */
+		      int isplit = (int *) malloc( n * sizeof(int) );
+		      assert(isplit != NULL);
+		      threads = (pthread_t *) malloc( max_nthreads * sizeof(pthread_t) );
+		      assert(threads != NULL);
 
-		  if (max_nthreads > 1) {
-			pthread_attr_destroy(&attr);
-		  }
+		      /* This is an unreduced block */
+		      int nsplit = 1;
+		      isplit[0] = n;
+		      
+		      if (max_nthreads > 1) {
+			    pthread_attr_init(&attr);
+			    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+			    pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+		      }
 
-		  return(0);
-		}
+		      /* Set tolerance parameters */
+		      FloatingType bsrtol = sqrt(std::numeric_limits<FloatingType>::epsilon());    
+
+
+		      /* APPROXIMATE EIGENVALUES */
+
+		      /* compute approximations of the eigenvalues with muliple threads */
+		      /* equivalent to: */
+		      /* dlarrd_("I", "B", &n, &dummy, &dummy, &ifirst, &ilast, gersch, */
+		      /*         &bsrtol, D, E, E2, &pivmin, &nsplit, isplit, &m, W, Werr, */
+		      /*         &wl, &wu, iblock, Windex, work, iwork, &info); */
+		      /* assert(info == 0); */
+		      /* assert(m == ilast-ifirst+1); */
+		      
+		      int nthreads = max_nthreads;
+		      while (nthreads > 1 && isize / nthreads < 2)
+			    nthreads--;
+
+		      if (nthreads > 1) {
+		
+			    /* each threads computes W[iifirst:iilast] and places them in
+			     * work[0:n-1]; the corresponding errors in work[n:2*n-1];
+			     * the blocks they belong in iwork[0:n-1]; and their indices in
+			     * iwork[n:2*n-1]; */
+		
+			    iifirst = ifirst;
+			    chunk = isize / nthreads;
+			    for (i=1; i<nthreads; i++) {
+			      
+			      iilast = iifirst + chunk - 1;
+
+			      auxarg1 = create_auxarg1(n, D, E, E2, ifirst, ilast, iifirst, iilast,
+						       nsplit, isplit, bsrtol, pivmin, gersch,
+						       &work[0], &work[n], &iwork[n], &iwork[0]);
+			      
+			      info = pthread_create(&threads[i], &attr,
+						    eigval_subset_thread_a<FloatingType>,
+						    (void *) auxarg1);
+			      assert(info == 0);
+			      
+			      iifirst = iilast + 1;
+			    }
+			    iilast = ilast;
+
+			    auxarg1 = create_auxarg1(n, D, E, E2, ifirst, ilast, iifirst, iilast,
+						     nsplit, isplit, bsrtol, pivmin, gersch,
+						     &work[0], &work[n], &iwork[n], &iwork[0]);
+		
+			    void * status = eigval_subset_thread_a<FloatingType>( (void *) auxarg1 );
+			    assert(status == NULL);
+		
+			    /* join threads */
+			    for (i=1; i<nthreads; i++) {
+			      info = pthread_join(threads[i], &status);
+			      assert(info == 0 && status == NULL);
+			    }
+		
+			    /* m counts the numbers of eigenvalues computed by process */
+			    m = isize;
+			    for (j=0; j<isize; j++) {
+			      W[j]      = work[j];
+			      Werr[j]   = work[j+n];
+			      iblock[j] = iwork[j];
+			      Windex[j] = iwork[j+n];
+			    }
+		
+		      } else {
+			    /* no multithreaded computation */
+
+                double wl, wu;
+			    lapack::odrrd("I", "B", &n, &dummy, &dummy, &ifirst, &ilast, gersch,
+		      	    &bsrtol, D, E, E2, &pivmin, &nsplit, isplit, &m, W, Werr,
+		      	    &wl, &wu, iblock, Windex, work, iwork, &info);
+			    std::cout << info << std::endl;
+			    assert(info == 0);
+			    assert(m == ilast-ifirst+1);
+		      }
+
+		      /* clean up */
+		      free(threads);
+		      free(isplit);
+
+		      if (max_nthreads > 1) {
+			    pthread_attr_destroy(&attr);
+		      }
+
+		      return 0;
+		    }
+        #else
+		    template<typename FloatingType> 
+            int eigval_approx_proc
+            (proc_t *procinfo, int ifirst, int ilast, 
+             int n, FloatingType *D, FloatingType *E, FloatingType *E2,  
+             int *Windex, int *iblock, FloatingType *gersch, tol_t *tolstruct, 
+             FloatingType *W, FloatingType *Werr, FloatingType *Wgap, FloatingType *work,
+             int *iwork)
+            {
+              /* Input parameter */
+              FloatingType pivmin = tolstruct->pivmin;
+
+              /* Allocate workspace */
+              int *isplit = (int *) malloc( n * sizeof(int) );
+              assert(isplit != NULL);
+
+              /* This is an unreduced block */
+              int nsplit = 1;
+              isplit[0] = n;
+              
+              /* Set tolerance parameters */
+              FloatingType bsrtol = sqrt(DBL_EPSILON);    
+
+              /* APPROXIMATE EIGENVALUES */
+              int m, info;
+              FloatingType wl, wu, dummy;
+              lapack::odrrd("I", "B", &n, &dummy, &dummy, &ifirst, &ilast, gersch,
+                &bsrtol, D, E, E2, &pivmin, &nsplit, isplit, &m, W, Werr,
+                &wl, &wu, iblock, Windex, work, iwork, &info);
+              assert(info == 0);
+              assert(m == ilast-ifirst+1);
+
+              /* clean up */
+              free(isplit);
+
+              return 0;
+            }
+        #endif
 
 		template<typename FloatingType> 
 		int eigval_root_proc(proc_t *procinfo, int ifirst, int ilast, 
@@ -581,24 +611,12 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 					   int *iwork)
 		{
 		  /* Input parameter */
-		  int              pid = procinfo->pid;
-		  /* int              isize        = ilast-ifirst+1; */
 		  FloatingType       pivmin       = tolstruct->pivmin;
-
-		  /* Tolerances */
-		  FloatingType rtl;
 
 		  /* Create random vector to perturb rrr, same seed */
 		  int    two_n = 2*n;
 		  int    iseed[4] = {1,1,1,1};
-		  FloatingType *randvec;
 
-		  FloatingType isleft, isright, spdiam;
-		  FloatingType sigma, s1, s2;
-		  int    sgndef, cnt, negcnt_lft, negcnt_rgt;
-		  FloatingType tau;
-
-		  int    jtry, off_L, off_invD;
 		  FloatingType Dpivot, Dmax;
 		  bool   noREP;
 
@@ -608,10 +626,10 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  FloatingType gl, gu;
 
 		  /* Set tolerance parameters (need to be same as in refine function) */
-		  rtl    = sqrt(std::numeric_limits<FloatingType>::epsilon());
+		  FloatingType rtl = sqrt(std::numeric_limits<FloatingType>::epsilon());
 		  
 		  /* Allocate workspace */
-		  randvec = (FloatingType *) malloc( 2*n * sizeof(FloatingType) );
+		  FloatingTyperandvec = (FloatingType *) malloc( 2*n * sizeof(FloatingType) );
 		  assert(randvec != NULL);
 
 		  /* create random vector to perturb rrr and broadcast it */
@@ -621,13 +639,13 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  E[n-1] = 0.0;
 
 		  /* find outer bounds GL, GU for block and spectral diameter */
-		  gl = D[0];
-		  gu = D[0];
+		  FloatingType gl = D[0];
+		  FloatingType gu = D[0];
 		  for (i = 0; i < n; i++) {
 			gl = fmin(gl, gersch[2*i]  );
 			gu = fmax(gu, gersch[2*i+1]);
 		  }
-		  spdiam = gu - gl;
+		  FloatingType spdiam = gu - gl;
 		  
 		  /* find approximation of extremal eigenvalues of the block
 		   * odrrk computes one eigenvalue of tridiagonal matrix T
@@ -636,30 +654,33 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 			  &pivmin, &rtl, &tmp1, &tmp2, &info);
 		  assert(info == 0);  /* if info=-1 => eigenvalue did not converge */
 		
-		  isleft = fmax(gl, tmp1-tmp2 - HUNDRED*std::numeric_limits<FloatingType>::epsilon()*fabs(tmp1-tmp2) );
+		  FloatingType isleft = fmax(gl, tmp1-tmp2 - HUNDRED*std::numeric_limits<FloatingType>::epsilon()*fabs(tmp1-tmp2) );
 		
 		  lapack::odrrk(&n, &n, &gl, &gu, D, E2,
 		  	    &pivmin, &rtl, &tmp1, &tmp2, &info);
 		  assert(info == 0);  /* if info=-1 => eigenvalue did not converge */
 		
-		  isright = fmin(gu, tmp1+tmp2 + HUNDRED*std::numeric_limits<FloatingType>::epsilon()*fabs(tmp1+tmp2) );
+		  FloatingType isright = fmin(gu, tmp1+tmp2 + HUNDRED*std::numeric_limits<FloatingType>::epsilon()*fabs(tmp1+tmp2) );
 		  
 		  spdiam = isright - isleft;
 		  
 		  /* compute negcount at points s1 and s2 */
-		  s1 = isleft  + HALF   * spdiam;
-		  s2 = isright - FOURTH * spdiam;  /* not needed currently */
+		  FloatingType s1 = isleft  + HALF   * spdiam;
+		  FloatingType s2 = isright - FOURTH * spdiam;  /* not needed currently */
 
 		  /* compute negcount at points s1 and s2 */
 		  /* cnt = number of eigenvalues in (s1,s2] = count_right - count_left
 		   * negcnt_lft = number of eigenvalues smaller equals than s1
 		   * negcnt_rgt = number of eigenvalues smaller equals than s2 */
+          int cnt, negcnt_lft, negcnt_rgt;
 		  lapack::odrrc("T", &n, &s1, &s2, D, E, &pivmin,
 			  &cnt, &negcnt_lft, &negcnt_rgt, &info);
 		  assert(info == 0);
 		  
 		  /* if more of the desired eigenvectors are in the left part shift left
 		   * and the other way around */
+          int sgndef;
+          FloatingType sigma;
 		  if ( negcnt_lft >= n - negcnt_lft ) {
 			/* shift left */
 			sigma = isleft;
@@ -672,7 +693,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 
 		  /* define increment to perturb initial shift to find RRR
 		   * with not too much element growth */
-		  tau = spdiam*std::numeric_limits<FloatingType>::epsilon()*n + 2.0*pivmin;
+		  FloatingType tau = spdiam*std::numeric_limits<FloatingType>::epsilon()*n + 2.0*pivmin;
 
 
 		  /* try to find initial RRR of block:
@@ -682,9 +703,10 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		   * L_try      = work[n  :2*n-1]
 		   * inv(D_try) = work[2*n:3*n-1] */
 
-		  off_L    = n;
-		  off_invD = 2*n;
-		
+		  int off_L    = n;
+		  int off_invD = 2*n;
+
+          int jtry;
 		  for (jtry = 0; jtry < MAX_TRY_RRR; jtry++) {
 
 			Dpivot  = D[0] - sigma;
@@ -757,168 +779,233 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  /* clean up */
 		  free(randvec);
 
-		  return(0);
+		  return 0;
 		}
 
-		template<typename FloatingType> 
-		int eigval_refine_proc(proc_t *procinfo, int ifirst, int ilast, 
-					   int n, FloatingType *D, FloatingType *E, FloatingType *E2,  
-					   int *Windex, int *iblock, FloatingType *gersch, tol_t<FloatingType> *tolstruct, 
-					   FloatingType *W, FloatingType *Werr, FloatingType *Wgap, FloatingType *work,
-					   int *iwork)
-		{
-		  /* Input parameter */
-		  int              pid = procinfo->pid;
-		  int              isize        = ilast-ifirst+1;
-		  FloatingType       pivmin       = tolstruct->pivmin;
+        #ifndef DISABLE_PTHREADS
+	        template<typename FloatingType> 
+	        int eigval_refine_proc(proc_t *procinfo, int ifirst, int ilast, 
+				           int n, FloatingType *D, FloatingType *E, FloatingType *E2,  
+				           int *Windex, int *iblock, FloatingType *gersch, tol_t<FloatingType> *tolstruct, 
+				           FloatingType *W, FloatingType *Werr, FloatingType *Wgap, FloatingType *work,
+				           int *iwork)
+	        {
+	          /* Input parameter */
+	          int              isize        = ilast-ifirst+1;
+	          FloatingType       pivmin       = tolstruct->pivmin;
 
-		  /* double gl, gu, wl, wu; */
-		  FloatingType gl, gu;
+	          FloatingType gl, gu;
 
-		  /* Multithreading */
-		  int            nthreads;
-		  int              max_nthreads = procinfo->nthreads;
-		  int            iifirst, iilast, chunk;
-		  pthread_t      *threads;
-		  pthread_attr_t attr;
-		  auxarg2_t<FloatingType>      *auxarg2;
-		  void           *status;
+	          /* Multithreading */
+	          int            nthreads;
+	          int            max_nthreads = procinfo->nthreads;
+	          int            chunk;
+	          pthread_t      *threads;
+	          pthread_attr_t attr;
+	          auxarg2_t<FloatingType>      *auxarg2;
 
-		  /* Others */
-		  int    nsplit, *isplit;
-		  FloatingType spdiam;
-		  int    i_low, i_upp;
-		  FloatingType sigma;
+	          int    info, i;
 
-		  int    off_DE2, offset;
-		  int    rf_begin, rf_end;
+	          /* Allocate space */
+	          threads = (pthread_t *) malloc( max_nthreads * sizeof(pthread_t) );
+	          assert(threads != NULL);
+	          int isplit = (int *) malloc( n * sizeof(int) );
+	          assert(isplit != NULL);
 
-		  int    info, i;
+	          /* This is an unreduced block */
+	          isplit[0] = n;
+	          
+	          /* Prepare multi-threading */
+	          if (max_nthreads > 1) {
+		        pthread_attr_init(&attr);
+		        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+		        pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+	          }
 
-		  /* Allocate space */
-		  threads = (pthread_t *) malloc( max_nthreads * sizeof(pthread_t) );
-		  assert(threads != NULL);
-		  isplit = (int *) malloc( n * sizeof(int) );
-		  assert(isplit != NULL);
+	          /* find outer bounds GL, GU for block and spectral diameter */
+	          FloatingType gl = D[0];
+	          FloatingType gu = D[0];
+	          for (i = 0; i < n; i++) {
+		        gl = fmin(gl, gersch[2*i]  );
+		        gu = fmax(gu, gersch[2*i+1]);
+	          }
+	          FloatingType spdiam = gu - gl;
 
-		  /* This is an unreduced block */
-		  nsplit = 1;
-		  isplit[0] = n;
-		  
-		  /* Prepare multi-threading */
-		  if (max_nthreads > 1) {
-			pthread_attr_init(&attr);
-			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-			pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-		  }
+	          /* REFINE EIGENVALUES i_low:i_upp WITH REPECT TO RRR */
+	          
+	          int i_low = Windex[0];
+	          int i_upp = Windex[isize-1];
+	          FloatingType sigma = E[n-1];
 
-		  /* find outer bounds GL, GU for block and spectral diameter */
-		  gl = D[0];
-		  gu = D[0];
-		  for (i = 0; i < n; i++) {
-			gl = fmin(gl, gersch[2*i]  );
-			gu = fmax(gu, gersch[2*i+1]);
-		  }
-		  spdiam = gu - gl;
+	          /* calculate gaps */
+	          for (i=0; i<isize-1; i++) {
+		        Wgap[i] = fmax(0.0, (W[i+1] - Werr[i+1]) - (W[i] + Werr[i]) );
+	          }
+	          Wgap[isize-1] = fmax(0.0, gu - (W[isize-1] + Werr[isize-1]) );
+	
+	          /* shift eigenvalues to be consistent with dqds
+	           * and compute eigenvalues of SHIFTED matrix */
+	          for (i=0; i<isize; i++) {
+		        W[i]    -= sigma;
+		        Werr[i] += fabs(W[i])*std::numeric_limits<FloatingType>::epsilon();
+	          }
 
-		  /* REFINE EIGENVALUES i_low:i_upp WITH REPECT TO RRR */
-		  
-		  i_low = Windex[0];
-		  i_upp = Windex[isize-1];
-		  sigma = E[n-1];
+	          /* work  for sequential odrrb = work[0:2*n-1]
+	           * iwork for sequential odrrb = iwork[0:2*n-1]
+	           * DE2 = work[2*n:3*n-1] strting at bl_begin */
+	          int off_DE2 = 2*n;
+	
+	          /* compute DE2 at store it in work[bl_begin+2*n:bl_end-1+2*n] */
+	          for (i=0; i<n; i++) {
+		        work[i+off_DE2] = D[i]*E[i]*E[i];
+	          }
+	
+	          nthreads = max_nthreads;
+	          while (nthreads > 1 && isize/nthreads < 2) {
+		        nthreads--;
+	          }
 
-		  /* calculate gaps */
-		  for (i=0; i<isize-1; i++) {
-			Wgap[i] = fmax(0.0, (W[i+1] - Werr[i+1]) - (W[i] + Werr[i]) );
-		  }
-		  Wgap[isize-1] = fmax(0.0, gu - (W[isize-1] + Werr[isize-1]) );
-		
-		  /* shift eigenvalues to be consistent with dqds
-		   * and compute eigenvalues of SHIFTED matrix */
-		  for (i=0; i<isize; i++) {
-			W[i]    -= sigma;
-			Werr[i] += fabs(W[i])*std::numeric_limits<FloatingType>::epsilon();
-		  }
+	          if (nthreads > 1) {
 
-		  /* work  for sequential odrrb = work[0:2*n-1]
-		   * iwork for sequential odrrb = iwork[0:2*n-1]
-		   * DE2 = work[2*n:3*n-1] strting at bl_begin */
-		  off_DE2 = 2*n;
-		
-		  /* compute DE2 at store it in work[bl_begin+2*n:bl_end-1+2*n] */
-		  for (i=0; i<n; i++) {
-			work[i+off_DE2] = D[i]*E[i]*E[i];
-		  }
-		
-		  nthreads = max_nthreads;
-		  while (nthreads > 1 && isize/nthreads < 2) {
-			nthreads--;
-		  }
+		        rf_begin = 0;
+		        chunk    = isize / nthreads;
+		        for (i=1; i<nthreads; i++) {
+		          
+		          int rf_end = rf_begin + chunk - 1;
+			            
+		          auxarg2 = create_auxarg2(n, D,
+					           &work[off_DE2],
+					           rf_begin, rf_end, W, Werr, Wgap, Windex,
+					           tolstruct->rtol1, tolstruct->rtol2,
+					           pivmin, spdiam);
+		          
+		          info = pthread_create(&threads[i], &attr,
+	          			      eigval_subset_thread_r<FloatingType>,
+					        (void *) auxarg2);
+		          assert(info == 0);
+		          
+		          rf_begin = rf_end + 1;
+		        }
+		        rf_end = isize-1;
 
-		  if (nthreads > 1) {
+		        auxarg2 = create_auxarg2(n, D,
+					         &work[off_DE2],
+					         rf_begin, rf_end, W, Werr, Wgap, Windex,
+					         tolstruct->rtol1, tolstruct->rtol2,
+					         pivmin, spdiam);
+		          
+		        void * status = eigval_subset_thread_r<FloatingType>( (void *) auxarg2 );
+		        assert(status == NULL);
+	
+		        /* join threads */
+		        for (i=1; i<nthreads; i++) {
+		          info = pthread_join(threads[i], &status);
+		          assert(info == 0 && status == NULL);
+		        }
+		        /* should update gaps at splitting points here, but the gaps
+		         * will be recomputed anyway */
+		          
+	          } else {
+	
+		        int offset = i_low-1;
+	
+		        /* refine eigenvalues found by odrrb for i_low:i_upp */
+		        lapack::odrrb(&n, D, &work[off_DE2], &i_low,
+			        &i_upp, &tolstruct->rtol1, &tolstruct->rtol2, &offset, W, Wgap, 
+			        Werr, work, iwork, &pivmin, &spdiam, &n, &info);
+		        assert(info == 0);
+		        /* needs work of dim(2*n) and iwork of dim(2*n) */
+	          }
+	          /* odrrb computes gaps correctly, but not last one;
+	           * this is ignored since the gaps are recomputed anyway */
+	          
+	          /* clean up */
+	          free(threads);
+	          free(isplit);
+	          
+	          if (max_nthreads > 1) {
+		        pthread_attr_destroy(&attr);
+	          }
+	          
+	          return 0;
+	        }
+        #else
+            template<typename FloatingType>
+            int eigval_refine_proc
+            (proc_t *procinfo, int ifirst, int ilast, 
+             int n, FloatingType  *D, FloatingType  *E, FloatingType  *E2,  
+             int *Windex, int *iblock, FloatingType  *gersch, tol_t *tolstruct, 
+             FloatingType  *W, FloatingType  *Werr, FloatingType  *Wgap, FloatingType  *work, int *iwork)
+            {
+              /* Input parameter */
+              int    isize  = ilast-ifirst+1;
+              FloatingType  pivmin = tolstruct->pivmin;
 
-			rf_begin = 0;
-			chunk    = isize / nthreads;
-			for (i=1; i<nthreads; i++) {
-			  
-			  rf_end = rf_begin + chunk - 1;
-				    
-			  auxarg2 = create_auxarg2(n, D,
-						   &work[off_DE2],
-						   rf_begin, rf_end, W, Werr, Wgap, Windex,
-						   tolstruct->rtol1, tolstruct->rtol2,
-						   pivmin, spdiam);
-			  
-			  info = pthread_create(&threads[i], &attr,
-		  			      eigval_subset_thread_r<FloatingType>,
-						(void *) auxarg2);
-			  assert(info == 0);
-			  
-			  rf_begin = rf_end + 1;
-			}
-			rf_end = isize-1;
+              /* Allocate space */
+              int *isplit = (int *) malloc( n * sizeof(int) );
+              assert(isplit != NULL);
 
-			auxarg2 = create_auxarg2(n, D,
-						 &work[off_DE2],
-						 rf_begin, rf_end, W, Werr, Wgap, Windex,
-						 tolstruct->rtol1, tolstruct->rtol2,
-						 pivmin, spdiam);
-			  
-			status = eigval_subset_thread_r<FloatingType>( (void *) auxarg2 );
-			assert(status == NULL);
-		
-			/* join threads */
-			for (i=1; i<nthreads; i++) {
-			  info = pthread_join(threads[i], &status);
-			  assert(info == 0 && status == NULL);
-			}
-			/* should update gaps at splitting points here, but the gaps
-			 * will be recomputed anyway */
-			  
-		  } else {
-		
-			offset = i_low-1;
-		
-			/* refine eigenvalues found by odrrb for i_low:i_upp */
-			lapack::odrrb(&n, D, &work[off_DE2], &i_low,
-				&i_upp, &tolstruct->rtol1, &tolstruct->rtol2, &offset, W, Wgap, 
-				Werr, work, iwork, &pivmin, &spdiam, &n, &info);
-			assert(info == 0);
-			/* needs work of dim(2*n) and iwork of dim(2*n) */
-		  }
-		  /* odrrb computes gaps correctly, but not last one;
-		   * this is ignored since the gaps are recomputed anyway */
-		  
-		  /* clean up */
-		  free(threads);
-		  free(isplit);
-		  
-		  if (max_nthreads > 1) {
-			pthread_attr_destroy(&attr);
-		  }
-		  
-		  return(0);
-		}
+              /* This is an unreduced block (nsplit=1) */
+              isplit[0] = n;
+              
+              /* find outer bounds GL, GU for block and spectral diameter */
+              FloatingType  gl = D[0];
+              FloatingType  gu = D[0];
+              int i;
+              for (i = 0; i < n; i++) {
+                gl = fmin(gl, gersch[2*i]  );
+                gu = fmax(gu, gersch[2*i+1]);
+              }
+              FloatingType  spdiam = gu - gl;
+
+              /* REFINE EIGENVALUES i_low:i_upp WITH REPECT TO RRR */
+              
+              int i_low = Windex[0];
+              int i_upp = Windex[isize-1];
+              FloatingType  sigma = E[n-1];
+
+              /* calculate gaps */
+              for (i=0; i<isize-1; i++) {
+                Wgap[i] = fmax(0.0, (W[i+1] - Werr[i+1]) - (W[i] + Werr[i]) );
+              }
+              Wgap[isize-1] = fmax(0.0, gu - (W[isize-1] + Werr[isize-1]) );
+                
+              /* shift eigenvalues to be consistent with dqds
+               * and compute eigenvalues of SHIFTED matrix */
+              for (i=0; i<isize; i++) {
+                W[i]    -= sigma;
+                Werr[i] += fabs(W[i])*DBL_EPSILON;
+              }
+
+              /* work  for sequential odrrb = work[0:2*n-1]
+               * iwork for sequential odrrb = iwork[0:2*n-1]
+               * DE2 = work[2*n:3*n-1] strting at bl_begin */
+              int off_DE2 = 2*n;
+                
+              /* compute DE2 at store it in work[bl_begin+2*n:bl_end-1+2*n] */
+              for (i=0; i<n; i++) {
+                work[i+off_DE2] = D[i]*E[i]*E[i];
+              }
+                
+              int offset = i_low-1;
+                
+              /* refine eigenvalues found by odrrb for i_low:i_upp */
+              int info;
+              lapack::odrrb(&n, D, &work[off_DE2], &i_low,
+                &i_upp, &tolstruct->rtol1, &tolstruct->rtol2, &offset, W, Wgap, 
+                Werr, work, iwork, &pivmin, &spdiam, &n, &info);
+              assert(info == 0);
+              /* needs work of dim(2*n) and iwork of dim(2*n) */
+
+              /* odrrb computes gaps correctly, but not last one;
+               * this is ignored since the gaps are recomputed anyway */
+              
+              /* clean up */
+              free(isplit);
+              
+              return 0;
+            }
+        #endif
 
 		template<typename FloatingType>
 		void *eigval_subset_thread_a(void *argin)
@@ -983,7 +1070,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  free(work);
 		  free(iwork);
 
-		  return(NULL);
+		  return NULL;
 		}
 
 		template<typename FloatingType> 
@@ -1016,7 +1103,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  arg->Windex  = Windex;
 		  arg->iblock  = iblock;
 
-		  return(arg);
+		  return arg;
 		}
 
 		template<typename FloatingType>
@@ -1056,7 +1143,6 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  FloatingType       *D, *DE2;
 		  FloatingType       rtol1, rtol2, pivmin;
 		  FloatingType       bl_spdiam;
-		  val_t<FloatingType>        *Wstruct;
 
 		  /* others */
 		  int          info, offset;
@@ -1093,7 +1179,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  free(work);
 		  free(iwork);
 
-		  return(NULL);
+		  return NULL;
 		}
 
 		template<typename FloatingType> 
@@ -1122,7 +1208,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  arg->pivmin    = pivmin;
 		  arg->bl_spdiam = bl_spdiam;
 
-		  return(arg);
+		  return arg;
 		}
 
 		template<typename FloatingType>
@@ -1148,20 +1234,6 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 
 		  free(arg);
 		}
-
-
-
-		/*
-		 * Compare function for using qsort() on an array
-		 * of doubles
-		 */
-		//TODO: remove?
-		/*template<typename FloatingType> 
-		bool cmp(const double & arg1, const double & arg2)
-		{
-			return arg1 < arg2;
-		}*/
-
 	}	// anonymous
 
 }	// detail
