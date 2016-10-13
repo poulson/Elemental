@@ -107,88 +107,116 @@ namespace pmrrr { namespace detail{
 /*
  * Computation of eigenvectors of a symmetric tridiagonal
  */
-template<typename FloatingType>
-int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *Wstruct,
-	   vec_t<FloatingType> *Zstruct, tol_t<FloatingType> *tolstruct, int *nzp,
-	   int *myfirstp)
-{
-  /* Input variables */
-  int            	   pid     = procinfo->pid;
-  int            	   nthreads = procinfo->nthreads;
-  int            	   n        = Dstruct->n;
-  FloatingType         *W       = Wstruct->W;
+#ifndef DISABLE_PTHREADS
+    template<typename FloatingType>
+    int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *Wstruct,
+	       vec_t<FloatingType> *Zstruct, tol_t<FloatingType> *tolstruct, int *nzp,
+	       int *myfirstp)
+    {
+      /* Input variables */
+      int            	   nthreads = procinfo->nthreads;
+      int            	   n        = Dstruct->n;
+      FloatingType         *W       = Wstruct->W;
 
-  /* Work space */
-  FloatingType         *Wshifted;
- 
-  /* Multi-threading */
-  pthread_t      *threads;   
-  pthread_attr_t attr;
-  void           *status;
-  auxarg3_t<FloatingType>      *auxarg;
-  counter_t      *num_left;
-  
-  /* Others */
-  int            info, i;
-  workQ_t        *workQ;
+      /* Allocate work space and copy eigenvalues */
+      FloatingType *Wshifted = (FloatingType *) malloc( n * sizeof(FloatingType) );
+      assert(Wshifted != NULL);
 
+      memcpy(Wshifted, W, n*sizeof(FloatingType));
+      Wstruct->Wshifted = Wshifted;
+     
+      /* Multi-threading */
+      pthread_t *threads = (pthread_t *) malloc(nthreads * sizeof(pthread_t));
+      assert(threads != NULL);
 
-  /* Allocate work space and copy eigenvalues */
-  Wshifted = (FloatingType *) malloc( n * sizeof(FloatingType) );
-  assert(Wshifted != NULL);
+      /* Assign eigenvectors to processes */
+      assign_to_proc(procinfo, Dstruct, Wstruct, Zstruct, nzp,
+		                myfirstp);
+      
+      /* Create work queue Q, counter, threads to empty Q */
+      workQ_t *workQ = create_workQ();
+      counter_t *num_left = PMR_create_counter(*nzp);
 
-  memcpy(Wshifted, W, n*sizeof(FloatingType));
-  Wstruct->Wshifted = Wshifted;
+      threads[0] = pthread_self();
+      pthread_attr_t attr;
+      pthread_attr_init(&attr);
+      pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
 
-  threads = (pthread_t *) malloc(nthreads * sizeof(pthread_t));
-  assert(threads != NULL);
+      int i;
+      for (i=1; i<nthreads; i++) {
+        auxarg3_t<FloatingType> *auxarg =
+            create_auxarg3(i, procinfo, Wstruct, Zstruct, tolstruct, workQ, num_left);
+        int info = pthread_create(&threads[i], &attr, empty_workQ<FloatingType>, (void *) auxarg);
+        assert(info == 0);
+      }
 
-  /* Assign eigenvectors to processes */
-  assign_to_proc(procinfo, Dstruct, Wstruct, Zstruct, nzp,
-		            myfirstp);
+      /* Initialize work queue of process */
+      int info = init_workQ(procinfo, Dstruct, Wstruct, nzp, workQ);
+      assert(info == 0);
 
-  /* Create work queue Q, counter, threads to empty Q */
-  workQ    = create_workQ( );
-  num_left = PMR_create_counter(*nzp);
+      /* Empty the work queue */
+      auxarg3_t<FloatingType> * auxarg =
+        create_auxarg3(0, procinfo, Wstruct, Zstruct, tolstruct, workQ, num_left);
+      void * status = empty_workQ<FloatingType>((void *) auxarg);
+      assert(status == NULL);
 
-  threads[0] = pthread_self();
-  pthread_attr_init(&attr);
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-  pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
+      /* Join all the worker thread */
+      for (i=1; i<nthreads; i++) {
+        info = pthread_join(threads[i], &status);
+        assert(info == 0 && status == NULL);
+      }
 
-  for (i=1; i<nthreads; i++) {
-    auxarg = create_auxarg3(i, procinfo, Wstruct, Zstruct, tolstruct,
-			    workQ, num_left);
-    info = pthread_create(&threads[i], &attr, empty_workQ<FloatingType>, 
-			  (void *) auxarg);
-    assert(info == 0);
-  }
+      /* Clean up */
+      free(Wshifted);
+      free(threads);
+      pthread_attr_destroy(&attr);
+      destroy_workQ(workQ);
+      PMR_destroy_counter(num_left);
 
-  /* Initialize work queue of process */
-  info = init_workQ(procinfo, Dstruct, Wstruct, nzp, workQ);
-  assert(info == 0);
+      return 0;
+    }
+#else
+    template<typename FloatingType>
+    int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *Wstruct,
+	       vec_t<FloatingType> *Zstruct, tol_t<FloatingType> *tolstruct, int *nzp,
+	       int *myfirstp)
+    {
+      int     n  = Dstruct->n;
+      FloatingType  *W = Wstruct->W;
 
-  /* Empty the work queue */
-  auxarg = create_auxarg3(0, procinfo, Wstruct, Zstruct, tolstruct,
-			  workQ, num_left);
-  status = empty_workQ<FloatingType>((void *) auxarg);
-  assert(status == NULL);
+      /* Allocate work space and copy eigenvalues */
+      FloatingType *Wshifted = (FloatingType*)malloc(n*sizeof(FloatingType));
+      assert(Wshifted != NULL);
 
-  /* Join all the worker thread */
-  for (i=1; i<nthreads; i++) {
-    info = pthread_join(threads[i], &status);
-    assert(info == 0 && status == NULL);
-  }
+      memcpy(Wshifted, W, n*sizeof(FloatingType));
+      Wstruct->Wshifted = Wshifted;
 
-  /* Clean up */
-  free(Wshifted);
-  free(threads);
-  pthread_attr_destroy(&attr);
-  destroy_workQ(workQ);
-  PMR_destroy_counter(num_left);
+      /* Assign eigenvectors to processes */
+      assign_to_proc(procinfo, Dstruct, Wstruct, Zstruct, nzp, myfirstp);
 
-  return(0);
-}
+      /* Create work queue Q, counter, threads to empty Q */
+      workQ_t *workQ = create_workQ();
+      counter_t *num_left = PMR_create_counter(*nzp);
+
+      /* Initialize work queue of process */
+      int info = init_workQ(procinfo, Dstruct, Wstruct, nzp, workQ);
+      assert(info == 0);
+
+      /* Empty the work queue */
+      auxarg3_t *auxarg = 
+        create_auxarg3(0, procinfo, Wstruct, Zstruct, tolstruct, workQ, num_left);
+      void *status = empty_workQ((void*)auxarg);
+      assert(status == NULL);
+
+      /* Clean up */
+      free(Wshifted);
+      destroy_workQ(workQ);
+      PMR_destroy_counter(num_left);
+
+      return 0;
+    }
+#endif
 
 	namespace {
 
@@ -212,22 +240,17 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  int    *restrict iblock  = Wstruct->iblock;
 		  int    *restrict iproc   = Wstruct->iproc;
 		  int    *restrict Zindex  = Zstruct->Zindex;
-		  
-		  /* Others */
-		  int               i, id, j, k, isize, iblk, ishift,
-				            ibegin, iend, chunk, ind;
-		  FloatingType            		  sigma;
-		  sort_struct_t<FloatingType>     *array;
 
-		  array = (sort_struct_t<FloatingType> *) malloc(n*sizeof(sort_struct_t<FloatingType>));
+		  FloatingType            		  sigma;
+		  sort_struct_t<FloatingType> *array =
+            (sort_struct_t<FloatingType> *) malloc(n*sizeof(sort_struct_t<FloatingType>));
 
 		  for (i=0; i<n; i++) {
 			/* Find shift of block */
-			iblk                    = iblock[i];
-			ishift                  = isplit[iblk-1] - 1;
-			sigma                   = L[ishift];
+			int iblk                    = iblock[i];
+			int ishift                  = isplit[iblk-1] - 1;
 			/* Apply shift so that unshifted eigenvalues can be sorted */
-			array[i].lambda    = W[i] + sigma; 
+			array[i].lambda    = W[i] + L[ishift]; 
 			array[i].local_ind = Windex[i];
 			array[i].block_ind = iblk;
 			array[i].ind       = i;
@@ -238,18 +261,19 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  sort(array, array + n, cmp<FloatingType>);
 
 		  /* Mark eigenvectors that do not need to be computed */
+          int j;
 		  for (j = 0; j < il-1; j++ ) {
-			ind = array[j].ind;
-			iproc[ind]  = -1;
-			Zindex[ind] = -1;
+			iproc[array[j].ind]  = -1;
+			Zindex[array[j].ind] = -1;
 		  }
 
-		  isize = iu - il + 1;
+		  int isize = iu - il + 1;
 
-		  ibegin = il - 1;
+		  int ibegin = il - 1;
+          int id;
 		  for (id=0; id<nproc; id++) {
 
-			chunk = imax(1, isize/nproc + (id < isize%nproc));
+			int chunk = imax(1, isize/nproc + (id < isize%nproc));
 		
 			if (id==nproc-1) {
 			  iend = iu - 1;
@@ -258,11 +282,10 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 			  iend = imin(iend, iu -1);
 			}
 
-			k = 0;
+			int k = 0;
 			for (j=ibegin; j<=iend; j++) {
-			  ind = array[j].ind;
-			  iproc[ind]  = id;
-			  Zindex[ind] = k;
+			  iproc[array[j].ind]  = id;
+			  Zindex[array[j].ind] = k;
 			  k++;
 			}
 
@@ -277,13 +300,12 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  } /* end id */
 
 		  for (j = iend+1; j < n; j++ ) {
-			ind = array[j].ind;
-			iproc[ind]  = -1;
-			Zindex[ind] = -1;
+			iproc[array[j].ind]  = -1;
+			Zindex[array[j].ind] = -1;
 		  }
 		  
 		  free(array);
-		  return(0);
+		  return 0;
 		}
 
 		/* 
@@ -338,47 +360,28 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  int              nz       = *nzp;
 
 		  /* Loop over blocks */
-		  int              ibegin, iend, isize, iWbegin, iWend, nbl;
-		  FloatingType           sigma, gl, gu, avggap, spdiam;
-		  FloatingType *restrict DL;
-		  FloatingType *restrict DLL;
-		  rrr_t<FloatingType>            *RRR, *RRR_parent;
-
-		  /* Splitting into singletons and cluster */
-		  int              new_first, new_last, new_size;
-		  int              sn_first,  sn_last,  sn_size;
-		  int              cl_first,  cl_last,  cl_size;
-		  bool             task_inserted;
-		  int              max_size, left_pid, right_pid;
-		  FloatingType           lgap;
-		 
-		  /* Others */
-		  int              i, j, k, l;
-		  FloatingType           tmp;
-		  task_t           *task;
-
-		  /* Loop over blocks */
-		  ibegin  = 0;
+		  int i, j, k, l;
+		  int ibegin = 0;
 		  for ( j=0; j<nsplit; j++ ) {
 
-			iend   = isplit[j] - 1;
-			isize  = iend - ibegin + 1;
-			sigma  = L[iend];
+			int iend   = isplit[j] - 1;
+			int isize  = iend - ibegin + 1;
+			FloatingType sigma  = L[iend];
 
 			/* Use Gerschgorin disks to find spectral diameter */
-			gl = gersch[2*ibegin    ];
-			gu = gersch[2*ibegin + 1];
+			FloatingType gl = gersch[2*ibegin    ];
+			FloatingType gu = gersch[2*ibegin + 1];
 			for (i=ibegin+1; i<iend; i++) {
 			  gl = fmin(gl, gersch[2*i    ]);
 			  gu = fmax(gu, gersch[2*i + 1]);
 			}
-			spdiam = gu - gl;
-			avggap = spdiam / (isize-1);
+			FloatingType spdiam = gu - gl;
+			FloatingType avggap = spdiam / (isize-1);
 
 			/* Find eigenvalues in block */
-			nbl = 0;
-			iWbegin = iend   + 1;
-			iWend   = ibegin - 1;
+			FloatingType nbl = 0;
+			FloatingType iWbegin = iend   + 1;
+			FloatingType iWend   = ibegin - 1;
 			for (i=ibegin; i<=iend; i++) {
 			  if (nbl == 0 && iproc[i] == pid) {
 			iWbegin = i;
@@ -402,19 +405,19 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 
 			/* Compute DL and DLL for later computation of singletons
 			 * (freed when all singletons of root are computed) */
-			DL  = (FloatingType *) malloc(isize * sizeof(FloatingType));
+			FloatingType *DL  = (FloatingType *) malloc(isize * sizeof(FloatingType));
 			assert(DL != NULL);
 		
-			DLL = (FloatingType *) malloc(isize * sizeof(FloatingType));
+			FloatingType *DLL = (FloatingType *) malloc(isize * sizeof(FloatingType));
 			assert(DLL != NULL);
 
 			for (i=0; i<isize-1; i++) {
-			  tmp    = D[i+ibegin]*L[i+ibegin];
+			  FloatingType tmp = D[i+ibegin]*L[i+ibegin];
 			  DL[i]  = tmp;
 			  DLL[i] = tmp*L[i+ibegin];
 			}
 
-			RRR = PMR_create_rrr(&D[ibegin], &L[ibegin], DL, DLL, isize, 0);
+			rrr_t<FloatingType> *RRR = PMR_create_rrr(&D[ibegin], &L[ibegin], DL, DLL, isize, 0);
 			PMR_increment_rrr_dependencies(RRR);
 		
 			/* In W apply shift of current block to eigenvalues
@@ -425,172 +428,175 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 
 			/* Split eigenvalues of block into singletons and clusters
 			 * and add them to process work queue */
-			max_size = imax(1, nz/nthreads);
-			task_inserted = false;
-			new_first = ibegin;
+			int max_size = imax(1, nz/nthreads);
+			bool task_inserted = false;
+            int new_first=ibegin, new_last;
+            int sn_first, sn_last, sn_size;
 			for (i=ibegin; i<=iend; i++) {    
 
 			  if (i == iend)
-			new_last = i;
+			    new_last = i;
 			  else if (Wgap[i] >= MIN_RELGAP*fabs(Wshifted[i]))
-			new_last = i;
+			    new_last = i;
 			  else
-			continue;
+			    continue;
 
 			  /* Skip rest if no eigenvalues of process */
 			  if (new_first > iWend || new_last < iWbegin) {
-			new_first = i + 1;
-			continue;
+			    new_first = i + 1;
+			    continue;
 			  }
 
-			  new_size = new_last - new_first + 1;
+			  int new_size = new_last - new_first + 1;
 			  
 			  if (new_size == 1) {
-			/* Singleton was found */
+			    /* Singleton was found */
 	
-			if (new_first < iWbegin || new_first > iWend) {
-			  new_first = i + 1;
-			  continue;
-			} else {
-			  if (new_first==iWbegin || task_inserted==true) {
-				/* Initialize new singleton task */
-				sn_first = new_first;
-				sn_last  = new_first;
-				sn_size  = 1;
+			    if (new_first < iWbegin || new_first > iWend) {
+			      new_first = i + 1;
+			      continue;
+			    } else {
+			      if (new_first==iWbegin || task_inserted==true) {
+				    /* Initialize new singleton task */
+				    sn_first = new_first;
+				    sn_last  = new_first;
+				    sn_size  = 1;
+			      } else {
+				    /* Extend singleton task by one */
+				    sn_last++;
+				    sn_size++;
+			      }
+			    }
+
+			    /* Insert task if ... */
+			    if (i==iWend || sn_size>=max_size ||
+				    Wgap[i+1] < MIN_RELGAP*fabs(Wshifted[i+1])) {
+
+			      if (sn_first == ibegin) {
+				    lgap = fmax(0.0, W[ibegin] - Werr[ibegin] - gl );
+			      } else {
+				    lgap = Wgap[sn_first-1];
+			      }
+
+			      PMR_increment_rrr_dependencies(RRR);
+
+			      task_t *task = PMR_create_s_task(sn_first, sn_last, 1, ibegin, 
+						       iend, spdiam, lgap, RRR);
+			      
+		     	  PMR_insert_task_at_back(workQ->s_queue, task);
+			      
+			      task_inserted = true;
+			    } else {
+			      task_inserted = false;
+			    }
+
 			  } else {
-				/* Extend singleton task by one */
-				sn_last++;
-				sn_size++;
-			  }
-			}
+			    /* Cluster was found */
 
-			/* Insert task if ... */
-			if (i==iWend || sn_size>=max_size ||
-				Wgap[i+1] < MIN_RELGAP*fabs(Wshifted[i+1])) {
+			    int cl_first = new_first;
+			    int cl_last  = new_last;
+			    int cl_size  = new_size;
 
-			  if (sn_first == ibegin) {
-				lgap = fmax(0.0, W[ibegin] - Werr[ibegin] - gl );
-			  } else {
-				lgap = Wgap[sn_first-1];
-			  }
+			    /* Split cluster into clusters by absolut criterion */
+			    if (cl_size > 3) {
 
-			  PMR_increment_rrr_dependencies(RRR);
+			      /* Split cluster to smaller clusters [cl_first:cl_last] */
+			      for (k=new_first+1; k<new_last; k++) {
 
-			  task = PMR_create_s_task(sn_first, sn_last, 1, ibegin, 
-						   iend, spdiam, lgap, RRR);
-			  
-		 	  PMR_insert_task_at_back(workQ->s_queue, task);
-			  
-			  task_inserted = true;
-			} else {
-			  task_inserted = false;
-			}
+				    if (k == new_last-1)
+				      cl_last = new_last;
+				    else if (k != cl_first && Wgap[k] > 0.8*avggap)
+				      cl_last = k;
+				    else
+				      continue;
 
-			  } else {
-			/* Cluster was found */
+				    /* Skip cluster if no eigenvalues of process in it */
+				    if (cl_last < iWbegin || cl_first > iWend) {
+				      cl_first = k + 1;
+				      continue;
+				    }
 
-			cl_first = new_first;
-			cl_last  = new_last;
-			cl_size  = new_size;
+				    /* Record left gap of cluster */
+                    FloatingType lgap;
+				    if (cl_first == ibegin) {
+				      lgap = fmax(0.0, W[ibegin] - Werr[ibegin] - gl);
+				    } else {
+				      lgap = Wgap[cl_first-1];
+				    }
 
-			/* Split cluster into clusters by absolut criterion */
-			if (cl_size > 3) {
-
-			  /* Split cluster to smaller clusters [cl_first:cl_last] */
-			  for (k=new_first+1; k<new_last; k++) {
-
-				if (k == new_last-1)
-				  cl_last = new_last;
-				else if (k != cl_first && Wgap[k] > 0.8*avggap)
-				  cl_last = k;
-				else
-				  continue;
-
-				/* Skip cluster if no eigenvalues of process in it */
-				if (cl_last < iWbegin || cl_first > iWend) {
-				  cl_first = k + 1;
-				  continue;
-				}
-
-				/* Record left gap of cluster */
-				if (cl_first == ibegin) {
-				  lgap = fmax(0.0, W[ibegin] - Werr[ibegin] - gl);
-				} else {
-				  lgap = Wgap[cl_first-1];
-				}
-
-				/* Determine processes involved in processing the cluster */
-				left_pid  = nproc-1;
-				right_pid = 0;
-				for (l=cl_first; l<=cl_last; l++) {
-				  if (iproc[l] != -1) {
-				left_pid  = imin(left_pid,  iproc[l]);
-				right_pid = imax(right_pid, iproc[l]);
-				  }
-				}
+				    /* Determine processes involved in processing the cluster */
+				    int left_pid  = nproc-1;
+				    int right_pid = 0;
+				    for (l=cl_first; l<=cl_last; l++) {
+				      if (iproc[l] != -1) {
+				        left_pid  = imin(left_pid,  iproc[l]);
+				        right_pid = imax(right_pid, iproc[l]);
+				      }
+				    }
 				
-				/* 
-				 * We have to explicitly specify the type because neither NULL nor nullptr
-				 * can't be used for template type deduction.
-				 */
-				RRR_parent = PMR_create_rrr<FloatingType>(&D[ibegin], &L[ibegin], 
-							NULL, NULL, isize, 0);
+				    /* 
+				     * We have to explicitly specify the type because neither NULL nor nullptr
+				     * can't be used for template type deduction.
+				     */
+				    rrr_t<FloatingType> *RRR_parent = PMR_create_rrr<FloatingType>(&D[ibegin], &L[ibegin], 
+							    NULL, NULL, isize, 0);
 
-				task = PMR_create_c_task(cl_first, cl_last, 1, ibegin, 
-							 iend, spdiam, lgap, iWbegin, 
-							 iWend, left_pid, right_pid, 
-							 RRR_parent);
+				    task_t *task = PMR_create_c_task(cl_first, cl_last, 1, ibegin, 
+							     iend, spdiam, lgap, iWbegin, 
+							     iWend, left_pid, right_pid, 
+							     RRR_parent);
 
-				/* Insert task into queue, depending if cluster need
-				 * communication with other processes */
-				if (left_pid != right_pid)
-				  PMR_insert_task_at_back(workQ->r_queue, task);
-				else
-				  PMR_insert_task_at_back(workQ->c_queue, task);
+				    /* Insert task into queue, depending if cluster need
+				     * communication with other processes */
+				    if (left_pid != right_pid)
+				      PMR_insert_task_at_back(workQ->r_queue, task);
+				    else
+				      PMR_insert_task_at_back(workQ->c_queue, task);
 			
-				cl_first = k + 1;
-			  } /* end k */
+				    cl_first = k + 1;
+			      } /* end k */
 
-			} else {
-			  /* Cluster is too small to split, so insert it to queue */
+			    } else {
+			      /* Cluster is too small to split, so insert it to queue */
 
-			  /* Record left gap of cluster */
-			  if (cl_first == ibegin) {
-				lgap = fmax(0.0, W[ibegin] - Werr[ibegin] - gl );
-			  } else {
-				lgap = Wgap[cl_first-1];
-			  }
+			      /* Record left gap of cluster */
+                  FloatingType lgap;
+			      if (cl_first == ibegin) {
+				    lgap = fmax(0.0, W[ibegin] - Werr[ibegin] - gl );
+			      } else {
+				    lgap = Wgap[cl_first-1];
+			      }
 
-			  /* Determine processes involved */
-			  left_pid  = nproc-1;
-			  right_pid = 0;
-			  for (l=cl_first; l<=cl_last; l++) {
-				if (iproc[l] != -1) {
-				  left_pid  = imin(left_pid,  iproc[l]);
-				  right_pid = imax(right_pid, iproc[l]);
-				}
-			  }
+			      /* Determine processes involved */
+			      int left_pid  = nproc-1;
+			      int right_pid = 0;
+			      for (l=cl_first; l<=cl_last; l++) {
+				    if (iproc[l] != -1) {
+				      left_pid  = imin(left_pid,  iproc[l]);
+				      right_pid = imax(right_pid, iproc[l]);
+				    }
+			      }
 
-				/* 
-				 * We have to explicitly specify the type because neither NULL nor nullptr
-				 * can't be used for template type deduction.
-				 */
-			  RRR_parent = PMR_create_rrr<FloatingType>(&D[ibegin], &L[ibegin], 
-							  NULL, NULL, isize, 0);
+                  /* 
+                   * We have to explicitly specify the type because neither NULL nor nullptr
+                   * can't be used for template type deduction.
+                   */
+			      rrr_t<FloatingType> *RRR_parent = PMR_create_rrr<FloatingType>(&D[ibegin], &L[ibegin], 
+							      NULL, NULL, isize, 0);
 
-			  task = PMR_create_c_task(cl_first, cl_last, 1, ibegin, 
-						   iend, spdiam, lgap, iWbegin, iWend,
-						   left_pid, right_pid, RRR_parent);
+			      task_t *task = PMR_create_c_task(cl_first, cl_last, 1, ibegin, 
+						       iend, spdiam, lgap, iWbegin, iWend,
+						       left_pid, right_pid, RRR_parent);
 
-			  /* Insert task into queue, depending if cluster need
-			   * communication with other processes */
-			  if (left_pid != right_pid)
-				PMR_insert_task_at_back(workQ->r_queue, task);
-			  else
-				PMR_insert_task_at_back(workQ->c_queue, task);
-			  
-			}
-			task_inserted = true;
+			      /* Insert task into queue, depending if cluster need
+			       * communication with other processes */
+			      if (left_pid != right_pid)
+				    PMR_insert_task_at_back(workQ->r_queue, task);
+			      else
+				    PMR_insert_task_at_back(workQ->c_queue, task);
+			      
+			    }
+			    task_inserted = true;
 
 			  } /* end new_size */
 
@@ -604,11 +610,8 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 			ibegin = iend + 1;
 		  } /* end loop over blocks */ 
 
-		  return(0);
+		  return 0;
 		}
-
-
-
 
 		/*
 		 * Processes all the tasks put in the work queue.
@@ -616,33 +619,24 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		template<typename FloatingType> 
 		void *empty_workQ(void *argin)
 		{
-		  /* input arguments */
 		  int          tid;
 		  proc_t       *procinfo;
 		  val_t<FloatingType>        *Wstruct;
 		  vec_t<FloatingType>        *Zstruct;
 		  tol_t<FloatingType>        *tolstruct;
 		  workQ_t *workQ;
-		  counter_t    *num_left;
-		  int          n;
-
-		  /* others */
-		  task_t       *task;
-		  FloatingType       *work;
-		  int          *iwork;
-
-		  /* retrieve necessary arguments from structures */
-		  retrieve_auxarg3((auxarg3_t<FloatingType> *) argin, &tid, &procinfo, &Wstruct,
+		  counter_t    *num_left;b
+          retrieve_auxarg3((auxarg3_t<FloatingType> *) argin, &tid, &procinfo, &Wstruct,
 				   &Zstruct, &tolstruct, &workQ, &num_left);
 
-		  n        = Wstruct->n;
+		  int n = Wstruct->n;
 
 		  /* max. needed double precision work space: odr1v */
-		  work      = (FloatingType *) malloc(4*n * sizeof(FloatingType));
+		  FloatingType *work = (FloatingType *) malloc(4*n * sizeof(FloatingType));
 		  assert(work != NULL);
 
 		  /* max. needed double precision work space: odrrb */
-		  iwork     = (int *)    malloc(2*n * sizeof(int)   );
+		  int iwork = (int *) malloc(2*n * sizeof(int)   );
 		  assert(iwork != NULL);
 
 
@@ -653,7 +647,7 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 			PMR_process_r_queue(tid, procinfo, Wstruct, Zstruct, tolstruct,
 					workQ, num_left, work, iwork);
 
-			task = PMR_remove_task_at_front(workQ->s_queue);
+			task_t *task = PMR_remove_task_at_front(workQ->s_queue);
 			if ( task != NULL ) {
 			  assert(task->flag == SINGLETON_TASK_FLAG);
 
@@ -680,11 +674,8 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  free(work);
 		  free(iwork);
 
-		  return(NULL);
+		  return NULL;
 		}
-
-
-
 
 		static workQ_t *create_workQ()
 		{
@@ -699,9 +690,6 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  return(wq);
 		}
 
-
-
-
 		static void destroy_workQ(workQ_t *wq)
 		{
 		  PMR_destroy_queue(wq->r_queue);
@@ -710,18 +698,14 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  free(wq);
 		}
 
-
-
-
 		template<typename FloatingType>
 		auxarg3_t<FloatingType>*
 		create_auxarg3(int tid, proc_t *procinfo, val_t<FloatingType> *Wstruct,
 				   vec_t<FloatingType> *Zstruct, tol_t<FloatingType> *tolstruct,
 				   workQ_t *workQ, counter_t *num_left)
 		{
-		  auxarg3_t<FloatingType> *arg;
-
-		  arg = (auxarg3_t<FloatingType> *) malloc( sizeof(auxarg3_t<FloatingType>) );
+		  auxarg3_t<FloatingType> *arg =
+            (auxarg3_t<FloatingType> *) malloc( sizeof(auxarg3_t<FloatingType>) );
 		  assert(arg != NULL);
 
 		  arg->tid         = tid;
@@ -729,10 +713,10 @@ int plarrv(proc_t *procinfo, in_t<FloatingType> *Dstruct, val_t<FloatingType> *W
 		  arg->Wstruct     = Wstruct;
 		  arg->Zstruct     = Zstruct;
 		  arg->tolstruct   = tolstruct; 
-		  arg->workQ  = workQ;
+		  arg->workQ       = workQ;
 		  arg->num_left    = num_left;
 
-		  return(arg);
+		  return arg;
 		}
 
 
