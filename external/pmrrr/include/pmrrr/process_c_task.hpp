@@ -1,4 +1,8 @@
+
 /* Copyright (c) 2010, RWTH Aachen University
+ * All rights reserved.
+ *
+ * Copyright (c) 2015, Jack Poulson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or 
@@ -116,11 +120,6 @@ namespace pmrrr { namespace detail {
 	  int   pid        = procinfo->pid;
 	  int   n          = Wstruct->n;
 
-	  /* Others */
-	  rrr_t<FloatingType> *RRR;
-	  int   rf_begin, rf_end;
-	  int   status;
-
 	  /* Protection against infinitely deep trees */
 	  assert(depth < n);
 
@@ -130,9 +129,9 @@ namespace pmrrr { namespace detail {
 		if (status == COMM_COMPLETE) {
 		  create_subtasks(cl, tid, procinfo, cl->RRR, Wstruct, Zstruct,
 				  workQ, num_left);
-		  return(C_TASK_PROCESSED);
+		  return C_TASK_PROCESSED;
 		} else {
-		  return(C_TASK_NOT_PROCESSED);
+		  return C_TASK_NOT_PROCESSED;
 		}
 	  }
 
@@ -140,10 +139,11 @@ namespace pmrrr { namespace detail {
 	   * communicate the refined eigenvalues if necessary,
 	   * and create subtasks if possible */
 
-	  RRR = compute_new_rrr(cl, tid, procinfo, Wstruct, Zstruct,
+	  rrr_t<FloatingType> *RRR = compute_new_rrr(cl, tid, procinfo, Wstruct, Zstruct,
 				tolstruct, work, iwork);
 
 	  /* Refine eigenvalues 'rf_begin' to 'rf_end' */
+      int rf_begin, rf_end;
 	  if (left_pid != right_pid) {
 		rf_begin = imax(cl->begin, cl->proc_W_begin);
 		rf_end   = imin(cl->end,   cl->proc_W_end);
@@ -159,8 +159,7 @@ namespace pmrrr { namespace detail {
 	  status = COMM_COMPLETE;
 	  if (left_pid != right_pid) {
 
-		status = communicate_refined_eigvals(cl, procinfo, tid,
-						 Wstruct, RRR);
+		status = communicate_refined_eigvals(cl, procinfo, tid, Wstruct, RRR);
 		/* status = COMM_INCOMPLETE if communication not finished */
 	  }
 
@@ -169,9 +168,9 @@ namespace pmrrr { namespace detail {
 		create_subtasks(cl, tid, procinfo, RRR, Wstruct, Zstruct,
 				workQ, num_left);
 
-		return(C_TASK_PROCESSED);
+		return C_TASK_PROCESSED;
 	  } else {
-		return(C_TASK_NOT_PROCESSED);
+		return C_TASK_NOT_PROCESSED;
 	  }
 
 	} /* end process_c_task */
@@ -199,48 +198,35 @@ namespace pmrrr { namespace detail {
 		  int    *restrict 		 Windex      = Wstruct->Windex;
 		  FloatingType *restrict Wshifted    = Wstruct->Wshifted;
 
-		  FloatingType           pivmin      = tolstruct->pivmin;
-
-		  /* New RRR */
-		  FloatingType           *restrict D,         *restrict L;
-		  FloatingType           *restrict DL,        *restrict DLL;
-		  FloatingType           *restrict D_parent,  *restrict L_parent;
-		  FloatingType           *DL_parent,          *DLL_parent;
-		  FloatingType           left_gap, right_gap, tau, fudge;
-		  rrr_t<FloatingType>            		 *RRR;
-		  FloatingType           RQtol = 2*std::numeric_limits<FloatingType>::epsilon();
-		  FloatingType           savegap;
-
-		  /* Others */
-		  int              i, k, p, info;
-		  FloatingType     tmp;
-		  int              offset, IONE=1;
-
 		  /* Allocate memory for new representation for cluster */
-		  D   = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
+		  FloatingType *D = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
+		  FloatingType *L = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
+		  FloatingType *DL  = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
+		  FloatingType *DLL = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
 		  assert(D != NULL);
-		  
-		  L   = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
 		  assert(L != NULL);
-		  
-		  DL  = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
 		  assert(DL != NULL);
-		  
-		  DLL = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
 		  assert(DLL != NULL);
 
 		  /* Recompute DL and DLL */
-		  D_parent = RRR_parent->D;
-		  L_parent = RRR_parent->L;
+          int i;
+          double tmp;
+		  FloatingType *D_parent = RRR_parent->D;
+		  FloatingType *L_parent = RRR_parent->L;
 		  for (i=0; i<bl_size-1; i++) {
 			tmp    = D_parent[i]*L_parent[i];
 			DL[i]  = tmp;
 			DLL[i] = tmp*L_parent[i];
 		  }
-		  DL_parent  = DL;
-		  DLL_parent = DLL;
+		  FloatingType *DL_parent  = DL;
+		  FloatingType *DLL_parent = DLL;
+
+          FloatingType RQtol = 2*DBL_EPSILON;
+          FloatingType pivmin = tolstruct->pivmin;
 
 		  /* to shift as close as possible refine extremal eigenvalues */
+          int k, p;
+          FloatingType savegap;
 		  for (k=0; k<2; k++) {
 			if (k == 0) {
 			  p              = Windex[cl_begin];
@@ -251,8 +237,9 @@ namespace pmrrr { namespace detail {
 			  savegap        = Wgap[cl_end];
 			  Wgap[cl_end]   = 0.0;
 			}
-		
-			offset  = Windex[cl_begin] - 1;
+
+		    int info;
+			int offset  = Windex[cl_begin] - 1;
 
 			lapack::odrrb(&bl_size, D_parent, DLL_parent, &p, &p, &RQtol,
 				&RQtol, &offset, &Wshifted[cl_begin], &Wgap[cl_begin],
@@ -268,10 +255,13 @@ namespace pmrrr { namespace detail {
 			}
 		  } /* end k */
 
-		  left_gap  = cl->lgap;
-		  right_gap = Wgap[cl_end];
+		  FloatingType left_gap  = cl->lgap;
+		  FloatingType right_gap = Wgap[cl_end];
 
 		  /* Compute new RRR and store it in D and L */
+          int info;
+          int IONE=1;
+          FloatingType tau;
 		  lapack::odrrf(&bl_size, D_parent, L_parent, DL_parent,
 			  &IONE, &cl_size, &Wshifted[cl_begin], &Wgap[cl_begin],
 			  &Werr[cl_begin], &bl_spdiam, &left_gap, &right_gap,
@@ -295,11 +285,11 @@ namespace pmrrr { namespace detail {
 			free(RRR_parent->D);
 			free(RRR_parent->L);
 		  }
-		  RRR = PMR_reset_rrr(RRR_parent, D, L, DL, DLL, bl_size, depth+1);
+		  rrr_t<FloatingType> *RRR = PMR_reset_rrr(RRR_parent, D, L, DL, DLL, bl_size, depth+1);
 		  
 		  /* Update shifted eigenvalues */
 		  for (k=cl_begin; k<=cl_end; k++) {
-			fudge  = THREE * std::numeric_limits<FloatingType>::epsilon() * fabs( Wshifted[k] );
+			FloatingType fudge  = THREE * std::numeric_limits<FloatingType>::epsilon() * fabs( Wshifted[k] );
 			Wshifted[k] -= tau;
 			fudge += FOUR * std::numeric_limits<FloatingType>::epsilon() * fabs( Wshifted[k] );
 			Werr[k] += fudge;
@@ -308,12 +298,8 @@ namespace pmrrr { namespace detail {
 		  /* Assure that structure is not freed while it is processed */
 		  PMR_increment_rrr_dependencies(RRR);
 
-		  return(RRR);
+		  return RRR;
 		} /* end compute_new_rrr */
-
-
-
-
 
 		/* 
 		 * Refine eigenvalues with respect to new rrr 
@@ -345,35 +331,23 @@ namespace pmrrr { namespace detail {
 		  int    *restrict 		 Windex    = Wstruct->Windex;
 		  FloatingType *restrict Wshifted  = Wstruct->Wshifted;
 
-		  int              		 nz        = Zstruct->nz;
-
-		  FloatingType           pivmin    = tolstruct->pivmin;
-		  FloatingType           rtol1     = tolstruct->rtol1;
-		  FloatingType           rtol2     = tolstruct->rtol2;
-
-		  /* Others */
-		  int              info, i, p, q, offset;
-		  FloatingType     sigma, savegap;
-		  int              MIN_REFINE_CHUNK = fmax(2,nz/(4*nthreads));
-		  int              left, own_part, others_part, num_tasks;
-		  int              ts_begin, ts_end, chunk, count;
-		  task_t           *task;
-		  sem_t            sem;
-		  int              num_iter;
-
 		  /* Determine if refinement should be split into tasks */
-		  left = PMR_get_counter_value(num_left);
-		  own_part = (int) fmax( ceil( (FloatingType) left / nthreads ),
-					 MIN_REFINE_CHUNK);
+		  int left = PMR_get_counter_value(num_left);
+          int nz = Zstruct->nz;
+          int nthreads = procinfo->nthreads;
+          int MIN_REFINE_CHUNK = fmax(2,nz/(4*nthreads));
+          int own_part = (int)fmax(ceil((double)left/nthreads),MIN_REFINE_CHUNK);
 
+          int offset, i, p, q;
+          double savegap;
+          task_t *task;
 		  if (own_part < rf_size) {
 
-			others_part = rf_size - own_part;
-			num_tasks   = iceil(rf_size, own_part) - 1; /* >1 */
-			chunk       = others_part/num_tasks;        /* floor */
+			int others_part = rf_size - own_part;
+			int num_tasks   = iceil(rf_size, own_part) - 1; /* >1 */
+			int chunk       = others_part/num_tasks;        /* floor */
 
-			sem_init(&sem, 0, 0);
-			ts_begin = rf_begin;
+			int ts_begin = rf_begin, ts_end;
 			p        = Windex[rf_begin];
 			for (i=0; i<num_tasks; i++) {
 			  ts_end = ts_begin + chunk - 1;
@@ -383,9 +357,9 @@ namespace pmrrr { namespace detail {
 						   bl_size, bl_spdiam, tid, &sem);
 			 
 			  if (ts_begin <= ts_end)
-			PMR_insert_task_at_back(workQ->r_queue, task);
+			    PMR_insert_task_at_back(workQ->r_queue, task);
 			  else
-			sem_post(&sem); /* case chunk=0 */
+			    PMR_refine_sem_post(task->data); /* case chunk=0 */
 
 			  ts_begin = ts_end + 1;
 			  p        = q      + 1;
@@ -396,6 +370,7 @@ namespace pmrrr { namespace detail {
 
 			/* Call bisection routine to refine the values */
 			if (ts_begin <= ts_end) {
+              int info;
 			  lapack::odrrb(&bl_size, D, DLL, &p, &q, &rtol1, &rtol2, &offset, 
 				  &Wshifted[ts_begin], &Wgap[ts_begin], &Werr[ts_begin],
 				  work, iwork, &pivmin, &bl_spdiam, &bl_size, &info);
@@ -403,7 +378,7 @@ namespace pmrrr { namespace detail {
 			}
 
 			/* Empty "all" r-queue refine tasks before waiting */
-			num_iter = PMR_get_num_tasks(workQ->r_queue);
+			int num_iter = PMR_get_num_tasks(workQ->r_queue);
 			for (i=0; i<num_iter; i++) {
 			  task = PMR_remove_task_at_front(workQ->r_queue);
 			  if (task != NULL) {
@@ -418,12 +393,12 @@ namespace pmrrr { namespace detail {
 			} /* end for i */
 		
 			/* Barrier: wait until all created tasks finished */
-			count = num_tasks;
+			int count = num_tasks;
 			while (count > 0) {
-			  while (sem_wait(&sem) != 0) { };
+			  while ( PMR_refine_sem_wait(task->data) != 0 ) { };
 			  count--;
 			}
-			sem_destroy(&sem);
+			PMR_refine_sem_destroy(task->data);
 
 			/* Edit right gap at splitting point */
 			ts_begin = rf_begin;
@@ -435,7 +410,6 @@ namespace pmrrr { namespace detail {
 			  
 			  ts_begin = ts_end + 1;
 			}
-
 		  } else {
 			/* Refinement of cluster without creating tasks */
 		
@@ -452,25 +426,22 @@ namespace pmrrr { namespace detail {
 			}  
 		
 			/* Bisection routine to refine the values */
+            int info;
 			lapack::odrrb(&bl_size, D, DLL, &p, &q, &rtol1, &rtol2, &offset, 
 				&Wshifted[rf_begin], &Wgap[rf_begin], &Werr[rf_begin],
 				work, iwork, &pivmin, &bl_spdiam, &bl_size, &info);
 			assert( info == 0 );
 		
-			if (p == q) {
+			if (p == q)
 			  Wgap[rf_begin] = savegap;
-			}  
-		  
 		  } /* end refine with or without creating tasks */
-
-		  sigma     = L[bl_size-1];
 		  
-		  /* refined eigenvalues with all shifts applied in W */
-		  for (i=rf_begin; i<=rf_end; i++) {
+          /* refined eigenvalues with all shifts applied in W */
+          FloatingType sigma = L[bl_size-1];
+		  for (i=rf_begin; i<=rf_end; i++)
 			W[i] = Wshifted[i] + sigma;
-		  }
 
-		  return(0);
+		  return 0;
 		} /* end refine_eigvals */
 
 
@@ -487,8 +458,7 @@ namespace pmrrr { namespace detail {
 		  int              proc_W_end   = cl->proc_W_end;
 		  int              left_pid     = cl->left_pid;
 		  int              right_pid    = cl->right_pid;
-		  int              num_messages;
-		  //  int              num_messages = 4*(right_pid - left_pid);
+          int pid          = procinfo->pid;
 
 		  int              pid          = procinfo->pid;
 
@@ -498,24 +468,14 @@ namespace pmrrr { namespace detail {
 		  FloatingType *restrict Wshifted     = Wstruct->Wshifted;
 		  int    *restrict 		 iproc        = Wstruct->iproc;
 
-		  /* Others */
-		  int              p, i_msg, u, k, i;
-		  int              my_begin, my_end, my_size;
-		  int              other_begin, other_end, other_size;
-		  FloatingType     sigma;
-		  int              status, communication_done;
-		  MPI_Request      *requests;
-		  MPI_Status       *stats;
-		  comm_t           *comm;
-		  bool             proc_involved;
-
-		  my_begin = imax(cl_begin, proc_W_begin);
-		  my_end   = imin(cl_end,   proc_W_end);
+		  int my_begin = imax(cl_begin, proc_W_begin);
+		  int my_end   = imin(cl_end,   proc_W_end);
 		  if (pid == left_pid ) my_begin = cl_begin;
 		  if (pid == right_pid) my_end   = cl_end;
-		  my_size  = my_end - my_begin + 1;
+          int my_size  = my_end - my_begin + 1;
 
-		  num_messages = 0;
+          int i, k;
+          int num_messages = 0;
 		  for (i=left_pid; i<=right_pid; i++) {
 			for (k=cl_begin; k<=cl_end; k++) {
 			  if (iproc[k] == i) {
@@ -525,22 +485,25 @@ namespace pmrrr { namespace detail {
 			}    
 		  }
 
-		  requests = (MPI_Request *) malloc( num_messages *
+		  MPI_Request *requests = (MPI_Request *) malloc( num_messages *
 							  sizeof(MPI_Request) );
-		  stats    = (MPI_Status  *) malloc( num_messages * 
+		  MPI_Status  *stats = (MPI_Status  *) malloc( num_messages * 
 							  sizeof(MPI_Status) );
 
-		  i_msg = 0;
+          int p;
+          int i_msg = 0;
+          int other_begin, other_end, other_size;
 		  for (p=left_pid; p<=right_pid; p++) {
 
-			proc_involved = false;
+			bool proc_involved = false;
 			for (k=cl_begin; k<=cl_end; k++) {
 			  if (iproc[k] == p) {
-			proc_involved = true;
-			break;
+			    proc_involved = true;
+			    break;
 			  }
 			}
 
+            int u;
 			if (p != pid && proc_involved == true) {
 
 			  /* send message to process p (non-blocking) */
@@ -553,33 +516,33 @@ namespace pmrrr { namespace detail {
 			  /* Find eigenvalues in of process p */
 			  other_size = 0;
 			  for (k=cl_begin; k<=cl_end; k++) {
-			if (other_size == 0 && iproc[k] == p) {
-			  other_begin = k;
-			  other_end   = k;
-			  other_size++;
-			  u = k+1;
-			  while (u <=cl_end && iproc[u] == p) {
-				other_end++;
-				other_size++;
-				u++;
-			  }
-			}
+			    if (other_size == 0 && iproc[k] == p) {
+			      other_begin = k;
+			      other_end   = k;
+			      other_size++;
+			      u = k+1;
+			      while (u <=cl_end && iproc[u] == p) {
+				    other_end++;
+				    other_size++;
+				    u++;
+			      }
+			    }
 			  }
 			  if (p == left_pid) {
-			other_begin = cl_begin;
-			u = cl_begin;
-			while (iproc[u] == -1) {
-			  other_size++;
-			  u++;
-			}
+			    other_begin = cl_begin;
+			    u = cl_begin;
+			    while (iproc[u] == -1) {
+			      other_size++;
+			      u++;
+			    }
 			  }
 			  if (p == right_pid) {
-			other_end = cl_end;
-			u = cl_end;
-			while (iproc[u] == -1) {
-			  other_size++;
-			  u--;
-			}
+			    other_end = cl_end;
+			    u = cl_end;
+			    while (iproc[u] == -1) {
+			      other_size++;
+			      u--;
+			    }
 			  }
 
 			  /* receive message from process p (non-blocking) */
@@ -595,13 +558,14 @@ namespace pmrrr { namespace detail {
 		  } /* end for p */
 		  num_messages = 4*i_msg; /* messages actually send */
 
-		  status = MPI_Testall(num_messages, requests, 
+		  int communication_done;
+          int status = MPI_Testall(num_messages, requests, 
 					   &communication_done, stats);
 		  assert(status == MPI_SUCCESS);
 
 		  if (communication_done == true) {
 
-			sigma     = RRR->L[bl_end-bl_begin];
+			FloatingType sigma = RRR->L[bl_end-bl_begin];
 			for (k=cl_begin; k<cl_end; k++) {
 			  W[k]    = Wshifted[k] + sigma;
 			  Wgap[k] = fmax(0, Wshifted[k+1]-Werr[k+1] 
@@ -614,7 +578,7 @@ namespace pmrrr { namespace detail {
 			status = COMM_COMPLETE;
 		  } else {
 		   
-			comm = (comm_t *) malloc( sizeof(comm_t) );
+			comm_t *comm = (comm_t *) malloc( sizeof(comm_t) );
 			assert(comm != NULL);
 
 			comm->num_messages      = num_messages;
@@ -626,7 +590,7 @@ namespace pmrrr { namespace detail {
 			status = COMM_INCOMPLETE;
 		  }
 		  
-		  return(status);
+		  return status;
 		} /* end communicate_refined_eigvals */
 
 
@@ -647,11 +611,9 @@ namespace pmrrr { namespace detail {
 		  FloatingType      *restrict Wgap      = Wstruct->Wgap;
 		  FloatingType      *restrict Wshifted  = Wstruct->Wshifted;
 
-		  int         		status, k, communication_done;
-		  FloatingType      sigma;
-
 		  /* Test if communication complete */
-		  status = MPI_Testall(num_messages, requests, 
+		  int communication_done;
+          int status = MPI_Testall(num_messages, requests, 
 					   &communication_done, stats);
 		  assert(status == MPI_SUCCESS);
 
@@ -659,7 +621,8 @@ namespace pmrrr { namespace detail {
 
 			cl->wait_until_refined = false;
 
-			sigma     = RRR->L[bl_end-bl_begin];
+            int k;
+			FloatingType sigma     = RRR->L[bl_end-bl_begin];
 			for (k=cl_begin; k<cl_end; k++) {
 			  W[k]    = Wshifted[k] + sigma;
 			  Wgap[k] = fmax(0, Wshifted[k+1]-Werr[k+1] 
@@ -675,10 +638,10 @@ namespace pmrrr { namespace detail {
 			status = COMM_INCOMPLETE;
 		  }
 
-		  return(status);
+		  return status;
 		} /* test_comm_status */
 
-
+        /* TODO: Refactor this routine */
 		template<typename FloatingType>
 		int create_subtasks(cluster_t<FloatingType> *cl, int tid, proc_t *procinfo, 
 					rrr_t<FloatingType> *RRR, val_t<FloatingType> *Wstruct, vec_t<FloatingType> *Zstruct,
