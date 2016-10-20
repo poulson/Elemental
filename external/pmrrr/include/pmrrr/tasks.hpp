@@ -166,7 +166,7 @@ namespace pmrrr { namespace detail {
 	template<typename FloatingType>
 	task_t *PMR_create_r_task(int begin, int end, FloatingType *D,
 				  FloatingType *DLL, int p, int q, int bl_size,
-				  FloatingType bl_spdiam, int tid, sem_t *sem)
+				  FloatingType bl_spdiam, int tid)
 	{
 	  task_t *t= (task_t *) malloc(sizeof(task_t));
 	  refine_t<FloatingType> *r = (refine_t<FloatingType> *) malloc( sizeof(refine_t<FloatingType>) );
