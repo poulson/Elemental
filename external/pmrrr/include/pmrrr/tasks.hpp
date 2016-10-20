@@ -1,6 +1,9 @@
 /* Copyright (c) 2010, RWTH Aachen University
  * All rights reserved.
  *
+ * Copyright (c) 2015, Jack Poulson
+ * All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or 
  * without modification, are permitted provided that the following
  * conditions are met:
@@ -56,13 +59,9 @@ namespace pmrrr { namespace detail {
 				  int bl_begin, int bl_end, 
 				  FloatingType spdiam, FloatingType lgap, rrr_t<FloatingType> *RRR)
 	{
-	  task_t      *t;
-	  singleton_t<FloatingType> *s;
-
-	  t = (task_t *) malloc(sizeof(task_t));
+	  task_t      *t = (task_t *) malloc(sizeof(task_t));
+	  singleton_t<FloatingType> *s = (singleton_t<FloatingType> *) malloc( sizeof(singleton_t<FloatingType>) );
 	  assert(t != NULL);
-	  
-	  s = (singleton_t<FloatingType> *) malloc( sizeof(singleton_t<FloatingType>) );
 	  assert(s != NULL);
 
 	  s->begin        = first;
@@ -79,7 +78,7 @@ namespace pmrrr { namespace detail {
 	  t->next = NULL;
 	  t->prev = NULL;
 
-	  return(t);
+	  return t;
 	}
 
 	template<typename FloatingType>
@@ -89,13 +88,9 @@ namespace pmrrr { namespace detail {
 				  int proc_W_end, int lpid, int rpid, 
 				  rrr_t<FloatingType> *RRR)
 	{
-	  task_t    *t;
-	  cluster_t<FloatingType> *c;
-
-	  t = (task_t *) malloc(sizeof(task_t));
+	  task_t *t = (task_t *) malloc(sizeof(task_t));
+	  cluster_t<FloatingType> *c = (cluster_t<FloatingType> *) malloc( sizeof(cluster_t<FloatingType>) );
 	  assert(t != NULL);
-	  
-	  c = (cluster_t<FloatingType> *) malloc( sizeof(cluster_t<FloatingType>) );
 	  assert(c != NULL);
 
 	  c->begin              = first;
@@ -117,22 +112,61 @@ namespace pmrrr { namespace detail {
 	  t->next = NULL;
 	  t->prev = NULL;
 
-	  return(t);
+	  return t;
 	}
 
+    int PMR_refine_sem_init(refine_t *refine)
+    {
+    #ifndef DISABLE_PTHREADS
+      int info = sem_init(refine->sem, 0, 0);
+      assert(info == 0);
+      return info;
+    #else
+      return 0;
+    #endif
+    }
+
+    int PMR_refine_sem_destroy(refine_t *refine)
+    {
+    #ifndef DISABLE_PTHREADS
+      int info = sem_destroy(refine->sem);
+      assert(info == 0);
+      return info;
+    #else
+      return 0;
+    #endif
+    }
+
+    int PMR_refine_sem_wait(refine_t *refine)
+    {
+    #ifndef DISABLE_PTHREADS
+      int info = sem_wait(refine->sem);
+      assert(info == 0);
+      return info;
+    #else
+      return 0;
+    #endif
+    }
+
+    int PMR_refine_sem_post(refine_t *refine)
+    {
+    #ifndef DISABLE_PTHREADS
+      int info = sem_post(refine->sem);
+      assert(info == 0);
+      return info;
+    #else
+      return 0;
+    #endif
+    }
 
 	template<typename FloatingType>
 	task_t *PMR_create_r_task(int begin, int end, FloatingType *D,
 				  FloatingType *DLL, int p, int q, int bl_size,
 				  FloatingType bl_spdiam, int tid, sem_t *sem)
 	{
-	  task_t   *t;
-	  refine_t<FloatingType> *r;
-
-	  t = (task_t *) malloc(sizeof(task_t));
+	  task_t *t= (task_t *) malloc(sizeof(task_t));
+	  refine_t<FloatingType> *r = (refine_t<FloatingType> *) malloc( sizeof(refine_t<FloatingType>) );
 	  assert(t != NULL);
-	  
-	  r = (refine_t<FloatingType> *) malloc( sizeof(refine_t<FloatingType>) );
 	  assert(r != NULL); 
 
 	  r->begin        = begin;
@@ -144,14 +178,15 @@ namespace pmrrr { namespace detail {
 	  r->bl_size      = bl_size;
 	  r->bl_spdiam    = bl_spdiam;
 	  r->producer_tid = tid;
-	  r->sem          = sem;
+      
+      PMR_refine_sem_init(r);
 
 	  t->data = (void *) r;
 	  t->flag = REFINE_TASK_FLAG;
 	  t->next = NULL;
 	  t->prev = NULL;
 
-	  return(t);
+	  return t;
 	}
 
 }	// detail
