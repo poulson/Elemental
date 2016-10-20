@@ -1,6 +1,9 @@
 /* Copyright (c) 2010, RWTH Aachen University
  * All rights reserved.
  *
+ * Copyright (c) 2015, Jack Poulson
+ * All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or 
  * without modification, are permitted provided that the following
  * conditions are met:
@@ -50,7 +53,7 @@
 
 #include <pmrrr/lapack/odr1v.hpp>
 #include <pmrrr/lapack/odrrb.hpp>
-#include <pmrrr/blas/odscl.hpp>
+#include <pmrrr/blas/odscal.hpp>
 
 
 namespace pmrrr { namespace detail {
@@ -298,7 +301,7 @@ namespace pmrrr { namespace detail {
 		
 		/* normalize eigenvector */
 		suppsize = i_Zto - i_Zfrom + 1;
-		blas::odscl(&suppsize, &norminv, &Z[i_Zfrom + zind*ldz], &IONE);
+		blas::odscal(&suppsize, &norminv, &Z[i_Zfrom + zind*ldz], &IONE);
 
 		sigma = L[bl_size-1];
 		W[i]  = lambda + sigma;
@@ -315,7 +318,7 @@ namespace pmrrr { namespace detail {
 	  free(sng);
 	  PMR_try_destroy_rrr(RRR);
 
-	  return(0);
+	  return 0;
 	}
 
 } // detail
