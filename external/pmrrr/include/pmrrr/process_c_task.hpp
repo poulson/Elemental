@@ -198,7 +198,7 @@ namespace pmrrr { namespace detail {
 
 		  /* Recompute DL and DLL */
           int i;
-          double tmp;
+          FloatingType tmp;
 		  FloatingType *D_parent = RRR_parent->D;
 		  FloatingType *L_parent = RRR_parent->L;
 		  for (i=0; i<bl_size-1; i++) {
@@ -328,10 +328,10 @@ namespace pmrrr { namespace detail {
 		  int nz = Zstruct->nz;
 		  int nthreads = procinfo->nthreads;
 		  int MIN_REFINE_CHUNK = fmax(2,nz/(4*nthreads));
-		  int own_part = (int)fmax(ceil((double)left/nthreads),MIN_REFINE_CHUNK);
+		  int own_part = (int)fmax(ceil((FloatingType)left/nthreads),MIN_REFINE_CHUNK);
 
 		  int offset, i, p, q;
-		  double savegap;
+		  FloatingType savegap;
 		  task_t *task;
 		  if (own_part < rf_size) {
 

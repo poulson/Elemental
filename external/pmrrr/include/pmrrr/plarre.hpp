@@ -530,7 +530,7 @@ namespace detail{
 		      } else {
 			    /* no multithreaded computation */
 
-                double wl, wu;
+                FloatingType wl, wu;
 			    lapack::odrrd("I", "B", &n, &dummy, &dummy, &ifirst, &ilast, gersch,
 		      	    &bsrtol, D, E, E2, &pivmin, &nsplit, isplit, &m, W, Werr,
 		      	    &wl, &wu, iblock, Windex, work, iwork, &info);
