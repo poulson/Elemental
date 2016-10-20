@@ -19,7 +19,7 @@
 #include <pmrrr/lapack/odrrf.hpp>
 #include <pmrrr/lapack/odrrb.hpp>
 #include <pmrrr/blas/odcpy.hpp>
-#include <pmrrr/blas/odscl.hpp>
+#include <pmrrr/blas/odscal.hpp>
 
 #define imax(a,b) ( (a) > (b) ? (a) : (b) )
 #define imin(a,b) ( (a) < (b) ? (a) : (b) )
@@ -953,7 +953,7 @@ namespace pmrrr { namespace lapack {
 					}
 				}
 				i__4 = zto - zfrom + 1;
-				blas::odscl(&i__4, &nrminv, &z__[zfrom + windex * z_dim1], 
+				blas::odscal(&i__4, &nrminv, &z__[zfrom + windex * z_dim1], 
 					&c__1);
 	L125:
 	/*                    Update W */

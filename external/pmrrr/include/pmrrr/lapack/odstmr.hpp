@@ -25,7 +25,7 @@
 #include <pmrrr/lapack/odsrt.hpp>
 #include <pmrrr/lapack/odnst.hpp>
 #include <pmrrr/blas/odcpy.hpp>
-#include <pmrrr/blas/odscl.hpp>
+#include <pmrrr/blas/odscal.hpp>
 #include <pmrrr/blas/odswap.hpp>
 
 /* Table of constant values */
@@ -556,9 +556,9 @@ namespace pmrrr { namespace lapack {
 		scale = rmax / tnrm;
 		}
 		if (scale != 1.) {
-		blas::odscl(n, &scale, &d__[1], &c__1);
+		blas::odscal(n, &scale, &d__[1], &c__1);
 		i__1 = *n - 1;
-		blas::odscl(&i__1, &scale, &e[1], &c__1);
+		blas::odscal(&i__1, &scale, &e[1], &c__1);
 		tnrm *= scale;
 		if (valeig) {
 	/*           If eigenvalues in interval have to be found, */
@@ -699,7 +699,7 @@ namespace pmrrr { namespace lapack {
 
 		if (scale != 1.) {
 		d__1 = 1. / scale;
-		blas::odscl(m, &d__1, &w[1], &c__1);
+		blas::odscal(m, &d__1, &w[1], &c__1);
 		}
 
 	/*     If eigenvalues are not in increasing order, then sort them, */

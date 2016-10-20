@@ -1,11 +1,11 @@
 /**
-	C++ template version of BLAS routine odscl.
+	C++ template version of BLAS routine odscal.
 
 	Based on C code translated by f2c (version 20061008).
 */
 
-#ifndef __ODSCL_HPP__
-#define __ODSCL_HPP__
+#ifndef __ODSCAL_HPP__
+#define __ODSCAL_HPP__
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,7 +18,7 @@ namespace pmrrr { namespace blas {
 
 	/* Subroutine */ 
 	template<typename FloatingType>
-	int odscl(int *n, FloatingType *da, FloatingType *dx, 
+	int odscal(int *n, FloatingType *da, FloatingType *dx, 
 		int *incx)
 	{
 		/* System generated locals */
@@ -98,7 +98,7 @@ namespace pmrrr { namespace blas {
 	/* L50: */
 		}
 		return 0;
-	} /* odscl_ */
+	} 
 
 }
 
