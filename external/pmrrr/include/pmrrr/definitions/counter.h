@@ -1,6 +1,9 @@
 /* Copyright (c) 2010, RWTH Aachen University
  * All rights reserved.
  *
+ * Copyright (c) 2015, Jack Poulson
+ * All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or 
  * without modification, are permitted provided that the following
  * conditions are met:
@@ -41,17 +44,21 @@
 #ifndef CCOUNTER_H
 #define CCOUNTER_H
 
-#include <pthread.h>
+#ifndef DISABLE_PTHREADS
+ #include <pthread.h>
+#endif
 #include "global.h"
 
 namespace pmrrr { namespace detail {
 
 	typedef struct {
 	  int             value;
-	#ifdef NOSPINLOCKS
-	  pthread_mutex_t    lock;
-	#else
-	  pthread_spinlock_t lock;
+	#ifndef DISABLE_PTHREADS
+	  #ifdef NOSPINLOCKS
+	    pthread_mutex_t    lock;
+	  #else
+	    pthread_spinlock_t lock;
+	  #endif
 	#endif
 	} counter_t;
 
@@ -61,6 +68,11 @@ namespace pmrrr { namespace detail {
 	int PMR_decrement_counter(counter_t *counter, int amount);
 	int PMR_increment_counter(counter_t *counter, int amount);
 	void PMR_destroy_counter(counter_t *counter);
+
+	int PMR_counter_init_lock(counter_t *counter);
+	void PMR_counter_destroy_lock(counter_t *counter);
+	int PMR_counter_lock(counter_t *counter);
+	int PMR_counter_unlock(counter_t *counter);
 
 } }
 	

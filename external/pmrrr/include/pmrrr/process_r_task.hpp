@@ -41,14 +41,6 @@
 #ifndef __PROCESS_R_TASK_HPP__
 #define __PROCESS_R_TASK_HPP__
 
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <semaphore.h>
-#include <cassert>
-
-#include <mpi.h>
-
 #include <pmrrr/definitions/pmrrr.h>
 #include <pmrrr/definitions/plarrv.h>
 #include <pmrrr/definitions/global.h>
@@ -57,7 +49,6 @@
 #include <pmrrr/definitions/rrr.h>
 #include <pmrrr/definitions/structs.h>
 #include <pmrrr/definitions/tasks.h>
-#include <pmrrr/definitions/process_task.h>
 
 #include <pmrrr/lapack/odrrb.hpp>
 

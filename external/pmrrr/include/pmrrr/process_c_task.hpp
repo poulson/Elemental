@@ -46,26 +46,15 @@
 #ifndef __PROCESS_C_TASK_HPP__
 #define __PROCESS_C_TASK_HPP__
 
-#include <limits>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <cmath>
-#include <cassert>
-#include <semaphore.h>
-
-#include <mpi.h>
-
 #include <pmrrr/definitions/pmrrr.h>
 #include <pmrrr/definitions/plarrv.h>
 #include <pmrrr/definitions/global.h>
 #include <pmrrr/definitions/queue.h>
 #include <pmrrr/definitions/counter.h>
-#include <pmrrr/definitions/rrr.h>
 #include <pmrrr/definitions/structs.h>
-#include <pmrrr/definitions/tasks.h>
-#include <pmrrr/definitions/process_task.h>
 
+#include <pmrrr/tasks.hpp>
+#include <pmrrr/rrr.hpp>
 #include <pmrrr/lapack/odrrb.hpp>
 #include <pmrrr/lapack/odrrf.hpp>
 
@@ -105,8 +94,6 @@ namespace pmrrr { namespace detail {
 	
 	}
 
-
-
 	template<typename FloatingType>
 	int PMR_process_c_task(cluster_t<FloatingType> *cl, int tid, proc_t *procinfo,
 				   val_t<FloatingType> *Wstruct, vec_t<FloatingType> *Zstruct, 
@@ -124,6 +111,7 @@ namespace pmrrr { namespace detail {
 	  assert(depth < n);
 
 	  /* Check if task only need to be split into subtasks */
+	  int status;
 	  if (cl->wait_until_refined == true) {
 		status = test_comm_status(cl, Wstruct);
 		if (status == COMM_COMPLETE) {
@@ -143,7 +131,7 @@ namespace pmrrr { namespace detail {
 				tolstruct, work, iwork);
 
 	  /* Refine eigenvalues 'rf_begin' to 'rf_end' */
-      int rf_begin, rf_end;
+      	  int rf_begin, rf_end;
 	  if (left_pid != right_pid) {
 		rf_begin = imax(cl->begin, cl->proc_W_begin);
 		rf_end   = imin(cl->end,   cl->proc_W_end);
@@ -312,14 +300,14 @@ namespace pmrrr { namespace detail {
 				   workQ_t *workQ, FloatingType *work,
 				   int *iwork)
 		{
+          typedef refine_t<FloatingType>* data_t;
+
 		  /* From inputs */
 		  int              rf_size   = rf_end-rf_begin+1;
 		  int              bl_begin  = cl->bl_begin;
 		  int              bl_end    = cl->bl_end;
 		  int              bl_size   = bl_end - bl_begin + 1;
 		  FloatingType     bl_spdiam = cl->bl_spdiam;
-
-		  int              nthreads  = procinfo->nthreads;
 
 		  FloatingType *restrict D         = RRR->D;
 		  FloatingType *restrict L         = RRR->L;
@@ -330,17 +318,21 @@ namespace pmrrr { namespace detail {
 		  FloatingType *restrict Wgap      = Wstruct->Wgap;
 		  int    *restrict 		 Windex    = Wstruct->Windex;
 		  FloatingType *restrict Wshifted  = Wstruct->Wshifted;
+		  
+		  FloatingType pivmin = tolstruct->pivmin;
+		  FloatingType rtol1 = tolstruct->rtol1;
+		  FloatingType rtol2 = tolstruct->rtol2;
 
 		  /* Determine if refinement should be split into tasks */
 		  int left = PMR_get_counter_value(num_left);
-          int nz = Zstruct->nz;
-          int nthreads = procinfo->nthreads;
-          int MIN_REFINE_CHUNK = fmax(2,nz/(4*nthreads));
-          int own_part = (int)fmax(ceil((double)left/nthreads),MIN_REFINE_CHUNK);
+		  int nz = Zstruct->nz;
+		  int nthreads = procinfo->nthreads;
+		  int MIN_REFINE_CHUNK = fmax(2,nz/(4*nthreads));
+		  int own_part = (int)fmax(ceil((double)left/nthreads),MIN_REFINE_CHUNK);
 
-          int offset, i, p, q;
-          double savegap;
-          task_t *task;
+		  int offset, i, p, q;
+		  double savegap;
+		  task_t *task;
 		  if (own_part < rf_size) {
 
 			int others_part = rf_size - own_part;
@@ -354,12 +346,13 @@ namespace pmrrr { namespace detail {
 			  q      = p        + chunk - 1;
 
 			  task = PMR_create_r_task(ts_begin, ts_end, D, DLL, p, q, 
-						   bl_size, bl_spdiam, tid, &sem);
+						   bl_size, bl_spdiam, tid);
 			 
 			  if (ts_begin <= ts_end)
 			    PMR_insert_task_at_back(workQ->r_queue, task);
 			  else
-			    PMR_refine_sem_post(task->data); /* case chunk=0 */
+                /* TODO: remove casting if void* pointers are gone from task_t */
+			    PMR_refine_sem_post(static_cast<data_t>(task->data)); /* case chunk=0 */
 
 			  ts_begin = ts_end + 1;
 			  p        = q      + 1;
@@ -395,10 +388,12 @@ namespace pmrrr { namespace detail {
 			/* Barrier: wait until all created tasks finished */
 			int count = num_tasks;
 			while (count > 0) {
-			  while ( PMR_refine_sem_wait(task->data) != 0 ) { };
+              /* TODO: remove casting if void* pointers are gone from task_t */
+			  while ( PMR_refine_sem_wait(static_cast<data_t>(task->data)) != 0 ) { };
 			  count--;
 			}
-			PMR_refine_sem_destroy(task->data);
+            /* TODO: remove casting if void* pointers are gone from task_t */
+			PMR_refine_sem_destroy(static_cast<data_t>(task->data));
 
 			/* Edit right gap at splitting point */
 			ts_begin = rf_begin;
@@ -458,8 +453,6 @@ namespace pmrrr { namespace detail {
 		  int              proc_W_end   = cl->proc_W_end;
 		  int              left_pid     = cl->left_pid;
 		  int              right_pid    = cl->right_pid;
-          int pid          = procinfo->pid;
-
 		  int              pid          = procinfo->pid;
 
 		  FloatingType *restrict W            = Wstruct->W;

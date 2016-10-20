@@ -4,6 +4,9 @@
  * Copyright (c) 2010, RWTH Aachen University
  * All rights reserved.
  *
+ * Copyright (c) 2015, Jack Poulson
+ * All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or 
  * without modification, are permitted provided that the following
  * conditions are met:
@@ -45,13 +48,6 @@
 #define __PLARRV_HPP__
 
 #include <algorithm>
-
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <cmath>
-#include <cassert>
-#include <pthread.h>
 
 #include <pmrrr/definitions/pmrrr.h>
 #include <pmrrr/definitions/plarrv.h>
@@ -241,10 +237,10 @@ namespace pmrrr { namespace detail{
 		  int    *restrict iproc   = Wstruct->iproc;
 		  int    *restrict Zindex  = Zstruct->Zindex;
 
-		  FloatingType            		  sigma;
 		  sort_struct_t<FloatingType> *array =
             (sort_struct_t<FloatingType> *) malloc(n*sizeof(sort_struct_t<FloatingType>));
 
+          int i;
 		  for (i=0; i<n; i++) {
 			/* Find shift of block */
 			int iblk                    = iblock[i];
@@ -255,9 +251,9 @@ namespace pmrrr { namespace detail{
 			array[i].block_ind = iblk;
 			array[i].ind       = i;
 		  }
+
 		  /* Alternatively could sort list of pointers, which
 			 requires less data copying */
-
 		  sort(array, array + n, cmp<FloatingType>);
 
 		  /* Mark eigenvectors that do not need to be computed */
@@ -269,7 +265,7 @@ namespace pmrrr { namespace detail{
 
 		  int isize = iu - il + 1;
 
-		  int ibegin = il - 1;
+		  int ibegin = il - 1, iend;
           int id;
 		  for (id=0; id<nproc; id++) {
 
@@ -472,6 +468,7 @@ namespace pmrrr { namespace detail{
 			    if (i==iWend || sn_size>=max_size ||
 				    Wgap[i+1] < MIN_RELGAP*fabs(Wshifted[i+1])) {
 
+                  FloatingType lgap;
 			      if (sn_first == ibegin) {
 				    lgap = fmax(0.0, W[ibegin] - Werr[ibegin] - gl );
 			      } else {
@@ -625,7 +622,7 @@ namespace pmrrr { namespace detail{
 		  vec_t<FloatingType>        *Zstruct;
 		  tol_t<FloatingType>        *tolstruct;
 		  workQ_t *workQ;
-		  counter_t    *num_left;b
+		  counter_t    *num_left;
           retrieve_auxarg3((auxarg3_t<FloatingType> *) argin, &tid, &procinfo, &Wstruct,
 				   &Zstruct, &tolstruct, &workQ, &num_left);
 
@@ -636,7 +633,7 @@ namespace pmrrr { namespace detail{
 		  assert(work != NULL);
 
 		  /* max. needed double precision work space: odrrb */
-		  int iwork = (int *) malloc(2*n * sizeof(int)   );
+		  int *iwork = (int *) malloc(2*n * sizeof(int)   );
 		  assert(iwork != NULL);
 
 

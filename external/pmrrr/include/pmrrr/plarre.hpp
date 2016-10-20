@@ -5,6 +5,9 @@
  * Copyright (c) 2010, RWTH Aachen University
  * All rights reserved.
  *
+ * Copyright (c) 2015, Jack Poulson
+ * All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or 
  * without modification, are permitted provided that the following
  * conditions are met:
@@ -42,20 +45,8 @@
  *
  */
 
-
 #ifndef __PLARRE_HPP__
 #define __PLARRE_HPP__
-
-#include <limits>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <float.h>
-#include <assert.h>
-#include <pthread.h>
-
-#include <mpi.h>
 
 #include <pmrrr/definitions/pmrrr.h>
 #include <pmrrr/definitions/global.h>
@@ -134,291 +125,285 @@ namespace detail{
 					  int*, FloatingType**, FloatingType**, FloatingType**, int**, FloatingType*, FloatingType*, FloatingType*,
 					  FloatingType*);
 
-		//template<typename FloatingType>
-		//bool cmp(const double &, const double &);
-
 	}
 
+    /* Routine to compute eigenvalues */
+    template<typename FloatingType>
+    int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruct, 
+               val_t<FloatingType> *Wstruct, tol_t<FloatingType> *tolstruct, int *nzp, int *offsetp)
+    {
+      /* input variables */
+      int              nproc  = procinfo->nproc;
+      bool             wantZ  = (jobz[0]  == 'V' || jobz[0]  == 'v');
+      bool             cntval = (jobz[0]  == 'C' || jobz[0]  == 'c');
+      int              n      = Dstruct->n;
+      FloatingType *restrict D      = Dstruct->D;
+      FloatingType *restrict E      = Dstruct->E;
+      int    *restrict isplit = Dstruct->isplit;
+      FloatingType           *vl    = Wstruct->vl;
+      FloatingType           *vu    = Wstruct->vu;
+      int              *il    = Wstruct->il;
+      int              *iu    = Wstruct->iu;
+      FloatingType *restrict W      = Wstruct->W;
+      FloatingType *restrict Werr   = Wstruct->Werr;
+      FloatingType *restrict Wgap   = Wstruct->Wgap;
+      int    *restrict Windex = Wstruct->Windex;
+      int    *restrict iblock = Wstruct->iblock;
+      FloatingType *restrict gersch = Wstruct->gersch;
 
+      /* constants */
+      int             IZERO = 0,   IONE = 1;
+      FloatingType          DZERO = 0.0;
 
+      /* work space */
+      FloatingType          *E2;
+      FloatingType         *work;
+      int             *iwork;
 
-/* Routine to compute eigenvalues */
-template<typename FloatingType>
-int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruct, 
-	       val_t<FloatingType> *Wstruct, tol_t<FloatingType> *tolstruct, int *nzp, int *offsetp)
-{
-  /* input variables */
-  int              nproc  = procinfo->nproc;
-  bool             wantZ  = (jobz[0]  == 'V' || jobz[0]  == 'v');
-  bool             cntval = (jobz[0]  == 'C' || jobz[0]  == 'c');
-  int              n      = Dstruct->n;
-  FloatingType *restrict D      = Dstruct->D;
-  FloatingType *restrict E      = Dstruct->E;
-  int    *restrict isplit = Dstruct->isplit;
-  FloatingType           *vl    = Wstruct->vl;
-  FloatingType           *vu    = Wstruct->vu;
-  int              *il    = Wstruct->il;
-  int              *iu    = Wstruct->iu;
-  FloatingType *restrict W      = Wstruct->W;
-  FloatingType *restrict Werr   = Wstruct->Werr;
-  FloatingType *restrict Wgap   = Wstruct->Wgap;
-  int    *restrict Windex = Wstruct->Windex;
-  int    *restrict iblock = Wstruct->iblock;
-  FloatingType *restrict gersch = Wstruct->gersch;
+      /* compute geschgorin disks and spectral diameter */
+      FloatingType          gl, gu, eold, emax, eabs;
 
-  /* constants */
-  int             IZERO = 0,   IONE = 1;
-  FloatingType          DZERO = 0.0;
+      /* compute splitting points */
+      int             bl_begin, bl_end, bl_size;
 
-  /* work space */
-  FloatingType          *E2;
-  FloatingType         *work;
-  int             *iwork;
+      /* distribute work among processes */
+      int             ifirst, ilast, ifirst_tmp, ilast_tmp;
+      int             chunk, isize, iil, iiu;
 
-  /* compute geschgorin disks and spectral diameter */
-  FloatingType          gl, gu, eold, emax, eabs;
+      /* gather results */
+      int             *rcount, *rdispl;
 
-  /* compute splitting points */
-  int             bl_begin, bl_end, bl_size;
+      /* others */
+      int             info, i, j, jbl, idummy;
+      FloatingType          tmp1, dummy;
+      bool             sorted;
+      enum range_enum {allrng=1, valrng=2, indrng=3} irange;
+      FloatingType          intervals[2];
+      int             negcounts[2];
+      FloatingType          sigma;
 
-  /* distribute work among processes */
-  int             ifirst, ilast, ifirst_tmp, ilast_tmp;
-  int             chunk, isize, iil, iiu;
-
-  /* gather results */
-  int             *rcount, *rdispl;
-
-  /* others */
-  int             info, i, j, jbl, idummy;
-  FloatingType          tmp1, dummy;
-  bool             sorted;
-  enum range_enum {allrng=1, valrng=2, indrng=3} irange;
-  FloatingType          intervals[2];
-  int             negcounts[2];
-  FloatingType          sigma;
-
-  if (range[0] == 'A' || range[0] == 'a') {
-    irange = allrng;
-  } else if (range[0] == 'V' || range[0] == 'v') {
-    irange = valrng;
-  } else if (range[0] == 'I' || range[0] == 'i') {
-    irange = indrng;
-  } else {
-    return 1;
-  }
-
-  /* allocate work space */
-  E2     = (FloatingType *) malloc(     n * sizeof(FloatingType) );
-  assert(E2 != NULL);
-  work   = (FloatingType *) malloc(   4*n * sizeof(FloatingType) );
-  assert(work != NULL);
-  iwork  = (int *)    malloc(   3*n * sizeof(int) );
-  assert(iwork != NULL);
-  rcount = (int *)    malloc( nproc * sizeof(int) );
-  assert(rcount != NULL);
-  rdispl = (int *)    malloc( nproc * sizeof(int) );
-  assert(rdispl != NULL);
-
-  /* Compute square of off-diagonal elements */
-  for (i=0; i<n-1; i++) {
-    E2[i] = E[i]*E[i];
-  }
-
-  /* compute geschgorin disks and spectral diameter */
-  gl     = D[0];
-  gu     = D[0];
-  eold   =  0.0;
-  emax   =  0.0;
-  E[n-1] =  0.0;
-
-  for (i=0; i<n; i++) {
-    eabs = fabs(E[i]);
-    if (eabs >= emax) emax = eabs;
-    tmp1 = eabs + eold;
-    gersch[2*i] = D[i] - tmp1;
-    gl = fmin(gl, gersch[2*i]);
-    gersch[2*i+1] = D[i] + tmp1;
-    gu = fmax(gu, gersch[2*i+1]);
-    eold = eabs;
-  }
-  /* min. pivot allowed in the Sturm sequence of T */
-  tolstruct->pivmin = std::numeric_limits<FloatingType>::min() * fmax(1.0, emax*emax);
-  /* estimate of spectral diameter */
-  Dstruct->spdiam = gu - gl;
-
-  /* compute splitting points with threshold "split" */
-  lapack::odrra(&n, D, E, E2, &tolstruct->split, &Dstruct->spdiam,
-  	  &Dstruct->nsplit, isplit, &info);
-  assert(info == 0);
-
-  if (irange == allrng || irange == indrng) {
-    *vl = gl;
-    *vu = gu;
-  }
-
-  /* set eigenvalue indices in case of all or subset by value has
-   * to be computed; thereby convert all problem to subset by index
-   * computation */
-  if (irange == allrng) {
-    *il = 1;
-    *iu = n;
-  } else if (irange == valrng) {
-    intervals[0] = *vl; intervals[1] = *vu;
-    
-    /* find negcount at boundaries 'vl' and 'vu';
-     * needs work of dim(n) and iwork of dim(n) */
-    lapack::odebz(&IONE, &IZERO, &n, &IONE, &IONE, &IZERO,
-  	    &DZERO, &DZERO, &tolstruct->pivmin, D, E, E2, &idummy,
-  	    intervals, &dummy, &idummy, negcounts, work,
-  	    iwork, &info);
-    assert(info == 0);
-    
-    /* update negcounts of whole matrix with negcounts found for block */
-    *il = negcounts[0] + 1;
-    *iu = negcounts[1];
-  }
-
-  if (cntval && irange == valrng) {
-    /* clean up and return */
-    *nzp = iceil(*iu-*il+1, nproc);
-    clean_up_plarre(E2, work, iwork, rcount, rdispl);
-    return 0;
-  }
-
-
-  /* loop over unreduced blocks */  
-  bl_begin  = 0;
-  
-  for (jbl=0; jbl<Dstruct->nsplit; jbl++) {
-    
-    bl_end  = isplit[jbl] - 1;
-    bl_size = bl_end - bl_begin + 1;
-    
-    /* deal with 1x1 block immediately */
-    if (bl_size == 1) {
-      E[bl_end] = 0.0;
-      W[bl_begin]      = D[bl_begin];
-      Werr[bl_begin]   = 0.0;
-      Werr[bl_begin]   = 0.0;
-      iblock[bl_begin] = jbl + 1;
-      Windex[bl_begin] = 1;
-      bl_begin  = bl_end + 1;
-      continue;
-    }
-
-    /* Indix range of block */
-    iil = 1;
-    iiu = bl_size;
-
-    /* each process computes a subset of the eigenvalues of the block */
-    ifirst_tmp = iil;
-    for (i=0; i<nproc; i++) {
-      chunk  = (iiu-iil+1)/nproc + (i < (iiu-iil+1)%nproc);
-      if (i == nproc-1) {
-	ilast_tmp = iiu;
+      if (range[0] == 'A' || range[0] == 'a') {
+        irange = allrng;
+      } else if (range[0] == 'V' || range[0] == 'v') {
+        irange = valrng;
+      } else if (range[0] == 'I' || range[0] == 'i') {
+        irange = indrng;
       } else {
-	ilast_tmp = ifirst_tmp + chunk - 1;
-	ilast_tmp = imin(ilast_tmp, iiu);
+        return 1;
       }
-      if (i == procinfo->pid) {
-	ifirst    = ifirst_tmp;
-	ilast     = ilast_tmp;
-	isize     = ilast - ifirst + 1;
-	*offsetp = ifirst - iil;
-	*nzp      = isize;
+
+      /* allocate work space */
+      E2     = (FloatingType *) malloc(     n * sizeof(FloatingType) );
+      assert(E2 != NULL);
+      work   = (FloatingType *) malloc(   4*n * sizeof(FloatingType) );
+      assert(work != NULL);
+      iwork  = (int *)    malloc(   3*n * sizeof(int) );
+      assert(iwork != NULL);
+      rcount = (int *)    malloc( nproc * sizeof(int) );
+      assert(rcount != NULL);
+      rdispl = (int *)    malloc( nproc * sizeof(int) );
+      assert(rdispl != NULL);
+
+      /* Compute square of off-diagonal elements */
+      for (i=0; i<n-1; i++) {
+        E2[i] = E[i]*E[i];
       }
-      rcount[i]  = ilast_tmp - ifirst_tmp + 1;
-      rdispl[i]  = ifirst_tmp - iil;
-      ifirst_tmp = ilast_tmp + 1;
-      ifirst_tmp = imin(ifirst_tmp, iiu + 1);
-    }
-    
-    /* approximate eigenvalues of input assigned to process */
-    if (isize != 0) {      
-      info = eigval_approx_proc(procinfo, ifirst, ilast,
-				    bl_size, &D[bl_begin], &E[bl_begin], &E2[bl_begin], 
-				    &Windex[bl_begin], &iblock[bl_begin], &gersch[2*bl_begin],
-				    tolstruct, &W[bl_begin], &Werr[bl_begin], &Wgap[bl_begin], 
-				    work, iwork);
-      assert(info == 0);    
-    }
 
-    /* compute root representation of block */
-    info = eigval_root_proc(procinfo, ifirst, ilast,
-				  bl_size, &D[bl_begin], &E[bl_begin], &E2[bl_begin], 
-				  &Windex[bl_begin], &iblock[bl_begin], &gersch[2*bl_begin],
-				  tolstruct, &W[bl_begin], &Werr[bl_begin], &Wgap[bl_begin], 
-				  work, iwork);
-    assert(info == 0);    
+      /* compute geschgorin disks and spectral diameter */
+      gl     = D[0];
+      gu     = D[0];
+      eold   =  0.0;
+      emax   =  0.0;
+      E[n-1] =  0.0;
 
-    /* refine eigenvalues assigned to process w.r.t root */
-    if (isize != 0) {
-      info = eigval_refine_proc(procinfo, ifirst, ilast,
-				    bl_size, &D[bl_begin], &E[bl_begin], &E2[bl_begin], 
-				    &Windex[bl_begin], &iblock[bl_begin], &gersch[2*bl_begin],
-				    tolstruct, &W[bl_begin], &Werr[bl_begin], &Wgap[bl_begin], 
-				    work, iwork);
-      assert(info == 0);    
-    }
-    
-    memcpy(work, &W[bl_begin], isize * sizeof(FloatingType) );
-    MPI_Allgatherv(work, isize, float_traits<FloatingType>::mpi_type(), &W[bl_begin], rcount, rdispl,
-		   float_traits<FloatingType>::mpi_type(), procinfo->comm);
-    
-    memcpy(work, &Werr[bl_begin], isize * sizeof(FloatingType) );
-    MPI_Allgatherv(work, isize, float_traits<FloatingType>::mpi_type(), &Werr[bl_begin], rcount, rdispl,
-		   float_traits<FloatingType>::mpi_type(), procinfo->comm);
-    
-    memcpy(iwork, &Windex[bl_begin], isize * sizeof(int) );
-    MPI_Allgatherv(iwork, isize, MPI_INT, &Windex[bl_begin], rcount, rdispl,
-		   MPI_INT, procinfo->comm);
-    
-    /* Ensure that within block eigenvalues sorted */
-    sorted = false;
-    while (sorted == false) {
-    	sorted = true;
-    	for (j=bl_begin; j < bl_end; j++) {
-    	  if (W[j+1] < W[j]) {
-    	    sorted = false;
-    	    tmp1 = W[j];
-    	    W[j] = W[j+1];
-    	    W[j+1] = tmp1;
-    	    tmp1 = Werr[j];
-    	    Werr[j] = Werr[j+1];
-    	    Werr[j+1] = tmp1;
-    	  }
-    	}
-    }
-    
-    /* Set indices index correctly */
-    for (j=bl_begin; j <= bl_end; j++)
-      iblock[j] = jbl + 1;
-    
-    /* Recompute gaps within the blocks */
-    for (j = bl_begin; j < bl_end; j++) {
-      Wgap[j] = fmax(0.0, (W[j+1] - Werr[j+1]) - (W[j] + Werr[j]) );
-    }
-    sigma = E[bl_end];
-    Wgap[bl_end] = fmax(0.0, (gu - sigma) - (W[bl_end] + Werr[bl_end]) );
-
-    /* Compute UNSHIFTED eigenvalues */
-    if (!wantZ) {
-      sigma = E[bl_end];
-      for (i=bl_begin; i<=bl_end; i++) {
-	W[i]   += sigma;
+      for (i=0; i<n; i++) {
+        eabs = fabs(E[i]);
+        if (eabs >= emax) emax = eabs;
+        tmp1 = eabs + eold;
+        gersch[2*i] = D[i] - tmp1;
+        gl = fmin(gl, gersch[2*i]);
+        gersch[2*i+1] = D[i] + tmp1;
+        gu = fmax(gu, gersch[2*i+1]);
+        eold = eabs;
       }
+      /* min. pivot allowed in the Sturm sequence of T */
+      tolstruct->pivmin = std::numeric_limits<FloatingType>::min() * fmax(1.0, emax*emax);
+      /* estimate of spectral diameter */
+      Dstruct->spdiam = gu - gl;
+
+      /* compute splitting points with threshold "split" */
+      lapack::odrra(&n, D, E, E2, &tolstruct->split, &Dstruct->spdiam,
+          &Dstruct->nsplit, isplit, &info);
+      assert(info == 0);
+
+      if (irange == allrng || irange == indrng) {
+        *vl = gl;
+        *vu = gu;
+      }
+
+      /* set eigenvalue indices in case of all or subset by value has
+       * to be computed; thereby convert all problem to subset by index
+       * computation */
+      if (irange == allrng) {
+        *il = 1;
+        *iu = n;
+      } else if (irange == valrng) {
+        intervals[0] = *vl; intervals[1] = *vu;
+        
+        /* find negcount at boundaries 'vl' and 'vu';
+         * needs work of dim(n) and iwork of dim(n) */
+        lapack::odebz(&IONE, &IZERO, &n, &IONE, &IONE, &IZERO,
+            &DZERO, &DZERO, &tolstruct->pivmin, D, E, E2, &idummy,
+            intervals, &dummy, &idummy, negcounts, work,
+            iwork, &info);
+        assert(info == 0);
+        
+        /* update negcounts of whole matrix with negcounts found for block */
+        *il = negcounts[0] + 1;
+        *iu = negcounts[1];
+      }
+
+      if (cntval && irange == valrng) {
+        /* clean up and return */
+        *nzp = iceil(*iu-*il+1, nproc);
+        clean_up_plarre(E2, work, iwork, rcount, rdispl);
+        return 0;
+      }
+
+
+      /* loop over unreduced blocks */  
+      bl_begin  = 0;
+      
+      for (jbl=0; jbl<Dstruct->nsplit; jbl++) {
+        
+        bl_end  = isplit[jbl] - 1;
+        bl_size = bl_end - bl_begin + 1;
+        
+        /* deal with 1x1 block immediately */
+        if (bl_size == 1) {
+          E[bl_end] = 0.0;
+          W[bl_begin]      = D[bl_begin];
+          Werr[bl_begin]   = 0.0;
+          Werr[bl_begin]   = 0.0;
+          iblock[bl_begin] = jbl + 1;
+          Windex[bl_begin] = 1;
+          bl_begin  = bl_end + 1;
+          continue;
+        }
+
+        /* Indix range of block */
+        iil = 1;
+        iiu = bl_size;
+
+        /* each process computes a subset of the eigenvalues of the block */
+        ifirst_tmp = iil;
+        for (i=0; i<nproc; i++) {
+          chunk  = (iiu-iil+1)/nproc + (i < (iiu-iil+1)%nproc);
+          if (i == nproc-1) {
+            ilast_tmp = iiu;
+          } else {
+            ilast_tmp = ifirst_tmp + chunk - 1;
+            ilast_tmp = imin(ilast_tmp, iiu);
+          }
+          if (i == procinfo->pid) {
+            ifirst    = ifirst_tmp;
+            ilast     = ilast_tmp;
+            isize     = ilast - ifirst + 1;
+            *offsetp = ifirst - iil;
+            *nzp      = isize;
+          }
+          rcount[i]  = ilast_tmp - ifirst_tmp + 1;
+          rdispl[i]  = ifirst_tmp - iil;
+          ifirst_tmp = ilast_tmp + 1;
+          ifirst_tmp = imin(ifirst_tmp, iiu + 1);
+        }
+        
+        /* approximate eigenvalues of input assigned to process */
+        if (isize != 0) {      
+          info = eigval_approx_proc(procinfo, ifirst, ilast,
+                        bl_size, &D[bl_begin], &E[bl_begin], &E2[bl_begin], 
+                        &Windex[bl_begin], &iblock[bl_begin], &gersch[2*bl_begin],
+                        tolstruct, &W[bl_begin], &Werr[bl_begin], &Wgap[bl_begin], 
+                        work, iwork);
+          assert(info == 0);    
+        }
+
+        /* compute root representation of block */
+        info = eigval_root_proc(procinfo, ifirst, ilast,
+                      bl_size, &D[bl_begin], &E[bl_begin], &E2[bl_begin], 
+                      &Windex[bl_begin], &iblock[bl_begin], &gersch[2*bl_begin],
+                      tolstruct, &W[bl_begin], &Werr[bl_begin], &Wgap[bl_begin], 
+                      work, iwork);
+        assert(info == 0);    
+
+        /* refine eigenvalues assigned to process w.r.t root */
+        if (isize != 0) {
+          info = eigval_refine_proc(procinfo, ifirst, ilast,
+                        bl_size, &D[bl_begin], &E[bl_begin], &E2[bl_begin], 
+                        &Windex[bl_begin], &iblock[bl_begin], &gersch[2*bl_begin],
+                        tolstruct, &W[bl_begin], &Werr[bl_begin], &Wgap[bl_begin], 
+                        work, iwork);
+          assert(info == 0);    
+        }
+        
+        memcpy(work, &W[bl_begin], isize * sizeof(FloatingType) );
+        MPI_Allgatherv(work, isize, float_traits<FloatingType>::mpi_type(), &W[bl_begin], rcount, rdispl,
+               float_traits<FloatingType>::mpi_type(), procinfo->comm);
+        
+        memcpy(work, &Werr[bl_begin], isize * sizeof(FloatingType) );
+        MPI_Allgatherv(work, isize, float_traits<FloatingType>::mpi_type(), &Werr[bl_begin], rcount, rdispl,
+               float_traits<FloatingType>::mpi_type(), procinfo->comm);
+        
+        memcpy(iwork, &Windex[bl_begin], isize * sizeof(int) );
+        MPI_Allgatherv(iwork, isize, MPI_INT, &Windex[bl_begin], rcount, rdispl,
+               MPI_INT, procinfo->comm);
+        
+        /* Ensure that within block eigenvalues sorted */
+        sorted = false;
+        while (sorted == false) {
+            sorted = true;
+            for (j=bl_begin; j < bl_end; j++) {
+              if (W[j+1] < W[j]) {
+                sorted = false;
+                tmp1 = W[j];
+                W[j] = W[j+1];
+                W[j+1] = tmp1;
+                tmp1 = Werr[j];
+                Werr[j] = Werr[j+1];
+                Werr[j+1] = tmp1;
+              }
+            }
+        }
+        
+        /* Set indices index correctly */
+        for (j=bl_begin; j <= bl_end; j++)
+          iblock[j] = jbl + 1;
+        
+        /* Recompute gaps within the blocks */
+        for (j = bl_begin; j < bl_end; j++) {
+          Wgap[j] = fmax(0.0, (W[j+1] - Werr[j+1]) - (W[j] + Werr[j]) );
+        }
+        sigma = E[bl_end];
+        Wgap[bl_end] = fmax(0.0, (gu - sigma) - (W[bl_end] + Werr[bl_end]) );
+
+        /* Compute UNSHIFTED eigenvalues */
+        if (!wantZ) {
+          sigma = E[bl_end];
+          for (i=bl_begin; i<=bl_end; i++) {
+        W[i]   += sigma;
+          }
+        }
+        
+        /* Proceed with next block */
+        bl_begin  = bl_end  + 1;
+      }
+      /* end of loop over unreduced blocks */    
+      
+      /* free memory */
+      clean_up_plarre(E2, work, iwork, rcount, rdispl);
+      
+      return 0;
     }
-    
-    /* Proceed with next block */
-    bl_begin  = bl_end  + 1;
-  }
-  /* end of loop over unreduced blocks */    
-  
-  /* free memory */
-  clean_up_plarre(E2, work, iwork, rcount, rdispl);
-  
-  return 0;
-}
   
 	namespace {
 
@@ -461,7 +446,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		      FloatingType dummy;
 		      
 		      /* Allocate workspace */
-		      int isplit = (int *) malloc( n * sizeof(int) );
+		      int *isplit = (int *) malloc( n * sizeof(int) );
 		      assert(isplit != NULL);
 		      threads = (pthread_t *) malloc( max_nthreads * sizeof(pthread_t) );
 		      assert(threads != NULL);
@@ -623,13 +608,12 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 		  int   info, i, j;
 		  int   IONE = 1, ITWO = 2;
 		  FloatingType tmp, tmp1, tmp2;
-		  FloatingType gl, gu;
 
 		  /* Set tolerance parameters (need to be same as in refine function) */
 		  FloatingType rtl = sqrt(std::numeric_limits<FloatingType>::epsilon());
 		  
 		  /* Allocate workspace */
-		  FloatingTyperandvec = (FloatingType *) malloc( 2*n * sizeof(FloatingType) );
+		  FloatingType *randvec = (FloatingType *) malloc( 2*n * sizeof(FloatingType) );
 		  assert(randvec != NULL);
 
 		  /* create random vector to perturb rrr and broadcast it */
@@ -794,8 +778,6 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 	          int              isize        = ilast-ifirst+1;
 	          FloatingType       pivmin       = tolstruct->pivmin;
 
-	          FloatingType gl, gu;
-
 	          /* Multithreading */
 	          int            nthreads;
 	          int            max_nthreads = procinfo->nthreads;
@@ -809,7 +791,7 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 	          /* Allocate space */
 	          threads = (pthread_t *) malloc( max_nthreads * sizeof(pthread_t) );
 	          assert(threads != NULL);
-	          int isplit = (int *) malloc( n * sizeof(int) );
+	          int *isplit = (int *) malloc( n * sizeof(int) );
 	          assert(isplit != NULL);
 
 	          /* This is an unreduced block */
@@ -867,11 +849,11 @@ int plarre(proc_t *procinfo, char *jobz, char *range, in_t<FloatingType> *Dstruc
 
 	          if (nthreads > 1) {
 
-		        rf_begin = 0;
+		        int rf_begin = 0, rf_end;
 		        chunk    = isize / nthreads;
 		        for (i=1; i<nthreads; i++) {
 		          
-		          int rf_end = rf_begin + chunk - 1;
+		          rf_end = rf_begin + chunk - 1;
 			            
 		          auxarg2 = create_auxarg2(n, D,
 					           &work[off_DE2],

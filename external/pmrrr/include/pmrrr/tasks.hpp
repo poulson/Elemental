@@ -115,7 +115,8 @@ namespace pmrrr { namespace detail {
 	  return t;
 	}
 
-    int PMR_refine_sem_init(refine_t *refine)
+    template<typename FloatingType>
+    int PMR_refine_sem_init(refine_t<FloatingType> *refine)
     {
     #ifndef DISABLE_PTHREADS
       int info = sem_init(refine->sem, 0, 0);
@@ -126,7 +127,8 @@ namespace pmrrr { namespace detail {
     #endif
     }
 
-    int PMR_refine_sem_destroy(refine_t *refine)
+    template<typename FloatingType>
+    int PMR_refine_sem_destroy(refine_t<FloatingType> *refine)
     {
     #ifndef DISABLE_PTHREADS
       int info = sem_destroy(refine->sem);
@@ -137,7 +139,8 @@ namespace pmrrr { namespace detail {
     #endif
     }
 
-    int PMR_refine_sem_wait(refine_t *refine)
+    template<typename FloatingType>
+    int PMR_refine_sem_wait(refine_t<FloatingType> *refine)
     {
     #ifndef DISABLE_PTHREADS
       int info = sem_wait(refine->sem);
@@ -148,7 +151,8 @@ namespace pmrrr { namespace detail {
     #endif
     }
 
-    int PMR_refine_sem_post(refine_t *refine)
+    template<typename FloatingType>
+    int PMR_refine_sem_post(refine_t<FloatingType> *refine)
     {
     #ifndef DISABLE_PTHREADS
       int info = sem_post(refine->sem);

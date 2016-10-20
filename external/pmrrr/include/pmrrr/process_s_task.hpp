@@ -41,21 +41,12 @@
 #ifndef __PROCESS_S_TASK_HPP__
 #define __PROCESS_S_TASK_HPP__
 
-#include <limits>
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <cmath>
-#include <cfloat>
-#include <cassert>
-
 #include <pmrrr/definitions/pmrrr.h>
 #include <pmrrr/definitions/global.h>
 #include <pmrrr/definitions/structs.h>
 #include <pmrrr/definitions/counter.h>
 #include <pmrrr/definitions/rrr.h>
 #include <pmrrr/definitions/tasks.h>
-#include <pmrrr/definitions/process_task.h>
 
 #include <pmrrr/lapack/odr1v.hpp>
 #include <pmrrr/lapack/odrrb.hpp>

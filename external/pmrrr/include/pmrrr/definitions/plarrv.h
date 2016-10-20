@@ -47,11 +47,6 @@
 /*
  * Computation of eigenvectors of a symmetric tridiagonal
  */
-#ifdef __cplusplus
-//extern "C" int plarrv(proc_t *procinfo, in_t *Dstruct, val_t_ *Wstruct,
-//	   vec_t *Zstruct, tol_t *tolstruct, int *nzp,
-//	   int *myfirstp);
-#endif
 #define COMM_COMPLETE        0
 #define COMM_INCOMPLETE      1
 #define C_TASK_PROCESSED     0

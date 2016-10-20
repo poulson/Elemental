@@ -1,6 +1,9 @@
 /* Copyright (c) 2010, RWTH Aachen University
  * All rights reserved.
  *
+ * Copyright (c) 2015, Jack Poulson
+ * All rights reserved.
+ * 
  * Redistribution and use in source and binary forms, with or 
  * without modification, are permitted provided that the following
  * conditions are met:
@@ -41,7 +44,9 @@
 #ifndef TTASKS_H
 #define TTASKS_H
 
-#include <semaphore.h>
+#ifndef DISABLE_PTHREADS
+ #include <semaphore.h>
+#endif
 #include "global.h"
 #include "queue.h"
 #include "rrr.h"
@@ -51,21 +56,6 @@
 #define CLUSTER_TASK_FLAG    1
 #define REFINE_TASK_FLAG     2
 
-
-#ifdef __cplusplus
-/*extern "C" task_t *PMR_create_s_task(int first, int last, int depth,
-			  int bl_begin, int bl_end, double spdiam,
-			  double lgap, rrr_t *RRR);
-
-extern "C" task_t *PMR_create_c_task(int first, int last, int depth,
-			  int bl_begin, int bl_end, double spdiam,
-			  double lgap, int proc_W_begin, 
-			  int proc_W_end, int left_pid, int right_pid, 
-			  rrr_t *RRR);
-
-extern "C" task_t *PMR_create_r_task(int begin, int end, double *D,
-			  double *DLL, int p, int q, int bl_size,
-			  double bl_spdiam, int tid, sem_t *sem);*/
 namespace pmrrr { namespace detail {
 
 	template<typename FloatingType>
@@ -109,28 +99,12 @@ namespace pmrrr { namespace detail {
 	  int        bl_size;
 	  FloatingType     bl_spdiam;
 	  int        producer_tid; // not longer needed
+	#ifndef DISABLE_PTHREADS
 	  sem_t      *sem; /* since semt_t is a handle could also store it
 				  instead of pointer to it, but pointer is all
 		                  that is needed */
-	};
-	
-	template<typename FloatingType>
-	task_t *PMR_create_s_task(int first, int last, int depth,
-				  int bl_begin, int bl_end, FloatingType spdiam,
-				  FloatingType lgap, rrr_t<FloatingType> *RRR);
-
-	template<typename FloatingType>
-	task_t *PMR_create_c_task(int first, int last, int depth,
-				  int bl_begin, int bl_end, FloatingType spdiam,
-				  FloatingType lgap, int proc_W_begin, 
-				  int proc_W_end, int left_pid, int right_pid, 
-				  rrr_t<FloatingType> *RRR);
-
-	template<typename FloatingType>
-	task_t *PMR_create_r_task(int begin, int end, FloatingType *D,
-				  FloatingType *DLL, int p, int q, int bl_size,
-				  FloatingType bl_spdiam, int tid, sem_t *sem);
+	#endif
+	};	
 
 } }
-#endif
 #endif
