@@ -41,10 +41,11 @@
 #ifndef SSTRUCTS_H
 #define SSTRUCTS_H
 
-#include "mpi.h"
-#include "global.h"
-#include "counter.h"
-#include "queue.h"
+#include <mpi.h>
+
+#include <pmrrr/definitions/global.h>
+#include <pmrrr/definitions/counter.h>
+#include <pmrrr/definitions/queue.h>
 
 namespace pmrrr { namespace detail {
 
@@ -170,7 +171,6 @@ namespace pmrrr { namespace detail {
 	};
 
 }	// namespace detail
-
 }	// namespace pmrrr
 
 #endif

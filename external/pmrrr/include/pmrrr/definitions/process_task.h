@@ -47,26 +47,6 @@
 #include "counter.h"
 #include "queue.h"
 
-/* Function prototypes */
-#ifdef __cplusplus
-/*extern "C" int PMR_process_c_task(cluster_t *cl, int tid, proc_t *procinfo,
-		       val_t_ *Wstruct, vec_t *Zstruct, 
-		       tol_t *tolstruct, workQ_t *workQ, 
-		       counter_t *num_left, double *work, int *iwork);
-
-extern "C" int PMR_process_s_task(singleton_t *sng, int tid, proc_t *procinfo,
-		       val_t_ *Wstruct, vec_t *Zstruct, 
-		       tol_t *tolstruct, counter_t *num_left, 
-		       double *work, int *iwork);
-
-extern "C" int PMR_process_r_task(refine_t *rf, proc_t *procinfo, val_t_ *Wstruct,
-		       tol_t *tolstruct, double *work, int *iwork);
-
-extern "C" void PMR_process_r_queue(int tid, proc_t *procinfo, val_t_ *Wstruct,
-			 vec_t *Zstruct, tol_t *tolstruct,
-			 workQ_t *workQ, 
-			 counter_t *num_left, double *work, 
-			 int *iwork);*/
 
 namespace pmrrr { namespace detail {
 

@@ -41,8 +41,8 @@
 #ifndef PPLARRV_H
 #define PPLARRV_H
 
-#include "global.h"
-#include "structs.h"
+#include <pmrrr/definitions/global.h>
+#include <pmrrr/definitions/structs.h>
 
 /*
  * Computation of eigenvectors of a symmetric tridiagonal

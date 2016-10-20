@@ -47,7 +47,8 @@
 #ifndef DISABLE_PTHREADS
  #include <pthread.h>
 #endif
-#include "global.h"
+
+#include <pmrrr/definitions/global.h>
 
 namespace pmrrr { namespace detail {
 

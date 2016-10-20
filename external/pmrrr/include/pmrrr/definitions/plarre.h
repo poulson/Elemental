@@ -41,8 +41,8 @@
 #ifndef PPLARRE_H
 #define PPLARRE_H
 
-#include "global.h"
-#include "structs.h"
+#include <pmrrr/definitions/global.h>
+#include <pmrrr/definitions/structs.h>
 
 /*
  * Computing the eigenvalues and of a symmetric tridiagonal matrix 

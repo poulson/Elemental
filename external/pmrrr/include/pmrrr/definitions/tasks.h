@@ -47,10 +47,11 @@
 #ifndef DISABLE_PTHREADS
  #include <semaphore.h>
 #endif
-#include "global.h"
-#include "queue.h"
-#include "rrr.h"
-#include "structs.h"
+
+#include <pmrrr/definitions/global.h>
+#include <pmrrr/definitions/queue.h>
+#include <pmrrr/definitions/structs.h>
+#include <pmrrr/definitions/rrr.h>
 
 #define SINGLETON_TASK_FLAG  0
 #define CLUSTER_TASK_FLAG    1
