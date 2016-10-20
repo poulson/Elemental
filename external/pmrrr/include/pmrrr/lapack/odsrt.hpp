@@ -19,7 +19,7 @@ namespace pmrrr { namespace lapack {
 
 	/* Subroutine */ 
 	template<typename FloatingType>
-	int odsrt(char *id, int *n, FloatingType *d__, int *
+	int odsrt(const char *id, int *n, FloatingType *d__, int *
 		info)
 	{
 		/* System generated locals */

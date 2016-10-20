@@ -13,7 +13,7 @@
 namespace pmrrr { namespace lapack {
 
 	/* Subroutine */ 
-	int oerbla(char *srname, int *info)
+	int oerbla(const char *srname, int *info)
 	{
 		
 		/* Table of constant values */

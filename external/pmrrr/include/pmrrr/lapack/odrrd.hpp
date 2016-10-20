@@ -26,7 +26,7 @@ namespace pmrrr { namespace lapack {
 
 	/* Subroutine */ 
 	template<typename FloatingType>
-	int odrrd(char *range, char *order, int *n, FloatingType *vl,  
+	int odrrd(const char *range, const char *order, int *n, FloatingType *vl,  
 		FloatingType *vu, int *il, int *iu, FloatingType *gers, 
 		FloatingType *reltol, FloatingType *d__, FloatingType *e, FloatingType *e2, 
 		FloatingType *pivmin, int *nsplit, int *isplit, int *m, 

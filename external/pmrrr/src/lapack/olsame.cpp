@@ -9,7 +9,7 @@
 
 namespace pmrrr { namespace lapack {
 
-	int olsame(char *ca, char *cb)
+	int olsame(const char *ca, const char *cb)
 	{
 
 

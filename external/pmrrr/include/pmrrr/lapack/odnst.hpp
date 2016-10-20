@@ -19,7 +19,7 @@
 namespace pmrrr { namespace lapack {
 
 	template<typename FloatingType>
-	FloatingType odnst(char *norm, int *n, FloatingType *d__, FloatingType *e)
+	FloatingType odnst(const char *norm, int *n, FloatingType *d__, FloatingType *e)
 	{
 		/* Table of constant values */
 		static int c__1 = 1;

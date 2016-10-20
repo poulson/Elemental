@@ -37,7 +37,7 @@ namespace pmrrr { namespace lapack {
 
 	/* Subroutine */ 
 	template<typename FloatingType>
-	int odstmr(char *jobz, char *range, int *n, FloatingType *d__, 
+	int odstmr(const char *jobz, const char *range, int *n, FloatingType *d__, 
 		FloatingType *e, FloatingType *vl, FloatingType *vu, int *il, 
 		int *iu, int *m, FloatingType *w, FloatingType *z__, int *ldz, 
 		 int *nzc, int *isuppz, int *tryrac, FloatingType *work, 

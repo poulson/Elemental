@@ -19,7 +19,7 @@ namespace pmrrr { namespace lapack {
 
 	/* Subroutine */ 
 	template<typename FloatingType>
-	int odrrc(char *jobt, int *n, FloatingType *vl, 
+	int odrrc(const char *jobt, int *n, FloatingType *vl, 
 		FloatingType *vu, FloatingType *d__, FloatingType *e, FloatingType *pivmin, 
 		int *eigcnt, int *lcnt, int *rcnt, int *info)
 	{

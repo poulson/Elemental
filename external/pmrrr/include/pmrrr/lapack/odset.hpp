@@ -21,7 +21,7 @@ namespace pmrrr { namespace lapack {
 
 	/* Subroutine */ 
 	template<typename FloatingType>
-	int odset(char *uplo, int *m, int *n, FloatingType *alpha, 
+	int odset(const char *uplo, int *m, int *n, FloatingType *alpha, 
 	FloatingType *beta, FloatingType *a, int *lda)
 	{
 		/* System generated locals */
