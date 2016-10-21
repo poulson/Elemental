@@ -534,7 +534,6 @@ namespace detail{
 			    lapack::odrrd("I", "B", &n, &dummy, &dummy, &ifirst, &ilast, gersch,
 		      	    &bsrtol, D, E, E2, &pivmin, &nsplit, isplit, &m, W, Werr,
 		      	    &wl, &wu, iblock, Windex, work, iwork, &info);
-			    std::cout << info << std::endl;
 			    assert(info == 0);
 			    assert(m == ilast-ifirst+1);
 		      }
