@@ -209,7 +209,7 @@ namespace pmrrr { namespace detail {
 		  FloatingType *DL_parent  = DL;
 		  FloatingType *DLL_parent = DLL;
 
-          FloatingType RQtol = 2*DBL_EPSILON;
+          FloatingType RQtol = 2*std::numeric_limits<FloatingType>::epsilon();
           FloatingType pivmin = tolstruct->pivmin;
 
 		  /* to shift as close as possible refine extremal eigenvalues */

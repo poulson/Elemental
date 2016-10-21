@@ -554,7 +554,7 @@ namespace detail{
             int eigval_approx_proc
             (proc_t *procinfo, int ifirst, int ilast, 
              int n, FloatingType *D, FloatingType *E, FloatingType *E2,  
-             int *Windex, int *iblock, FloatingType *gersch, tol_t *tolstruct, 
+             int *Windex, int *iblock, FloatingType *gersch, tol_t<FloatingType> *tolstruct, 
              FloatingType *W, FloatingType *Werr, FloatingType *Wgap, FloatingType *work,
              int *iwork)
             {
@@ -570,7 +570,7 @@ namespace detail{
               isplit[0] = n;
               
               /* Set tolerance parameters */
-              FloatingType bsrtol = sqrt(DBL_EPSILON);    
+		      FloatingType bsrtol = sqrt(std::numeric_limits<FloatingType>::epsilon());    
 
               /* APPROXIMATE EIGENVALUES */
               int m, info;
@@ -786,7 +786,7 @@ namespace detail{
 	          pthread_attr_t attr;
 	          auxarg2_t<FloatingType>      *auxarg2;
 
-	          int    info, i;
+	          int info, i;
 
 	          /* Allocate space */
 	          threads = (pthread_t *) malloc( max_nthreads * sizeof(pthread_t) );
@@ -916,7 +916,7 @@ namespace detail{
             int eigval_refine_proc
             (proc_t *procinfo, int ifirst, int ilast, 
              int n, FloatingType  *D, FloatingType  *E, FloatingType  *E2,  
-             int *Windex, int *iblock, FloatingType  *gersch, tol_t *tolstruct, 
+             int *Windex, int *iblock, FloatingType  *gersch, tol_t<FloatingType> *tolstruct, 
              FloatingType  *W, FloatingType  *Werr, FloatingType  *Wgap, FloatingType  *work, int *iwork)
             {
               /* Input parameter */
@@ -956,7 +956,7 @@ namespace detail{
                * and compute eigenvalues of SHIFTED matrix */
               for (i=0; i<isize; i++) {
                 W[i]    -= sigma;
-                Werr[i] += fabs(W[i])*DBL_EPSILON;
+                Werr[i] += fabs(W[i])*std::numeric_limits<FloatingType>::epsilon();
               }
 
               /* work  for sequential odrrb = work[0:2*n-1]

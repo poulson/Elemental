@@ -200,9 +200,9 @@ namespace pmrrr { namespace detail{
       assert(info == 0);
 
       /* Empty the work queue */
-      auxarg3_t *auxarg = 
+      auxarg3_t<FloatingType> *auxarg = 
         create_auxarg3(0, procinfo, Wstruct, Zstruct, tolstruct, workQ, num_left);
-      void *status = empty_workQ((void*)auxarg);
+      void *status = empty_workQ<FloatingType>((void*)auxarg);
       assert(status == NULL);
 
       /* Clean up */

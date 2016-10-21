@@ -1,6 +1,9 @@
 /* Copyright (c) 2010, RWTH Aachen University
  * All rights reserved.
  *
+ * Copyright (c) 2015, Jack Poulson
+ * All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or 
  * without modification, are permitted provided that the following
  * conditions are met:
@@ -65,46 +68,41 @@ namespace pmrrr { namespace detail {
 				 workQ_t *workQ, counter_t *num_left, 
 				 FloatingType *work, int *iwork)
 	{
-	  int        thread_support = procinfo->thread_support;
-	  int        t, num_tasks;
-	  int        status;
-	  task_t     *task;
+	  int thread_support = procinfo->thread_support;
+	  int num_tasks = PMR_get_num_tasks(workQ->r_queue);
 
-	  num_tasks = PMR_get_num_tasks(workQ->r_queue);
-
+      int t;
 	  for (t=0; t<num_tasks; t++) {
 		
-		task = PMR_remove_task_at_front(workQ->r_queue);
+		task_t *task = PMR_remove_task_at_front(workQ->r_queue);
 
 		if ( task != NULL ) {
 		
 		  if (task->flag == CLUSTER_TASK_FLAG) {
 
-		if (thread_support != MPI_THREAD_FUNNELED || tid == 0) {
-		  /* if MPI_THREAD_FUNNELED only tid==0 should process 
-		       * these tasks, otherwise any thread can do it */
-		  status = PMR_process_c_task((cluster_t<FloatingType> *) task->data,
-						  tid, procinfo, Wstruct,
-						  Zstruct, tolstruct, workQ,
-						  num_left, work, iwork);
-		  
-		  if (status == C_TASK_PROCESSED) {
-			free(task);
-		  } else {
-			PMR_insert_task_at_back(workQ->r_queue, task);
-		  }
-		} else {
-			PMR_insert_task_at_back(workQ->r_queue, task);
-		}
+            if (thread_support != MPI_THREAD_FUNNELED || tid == 0) {
+              /* if MPI_THREAD_FUNNELED only tid==0 should process 
+                   * these tasks, otherwise any thread can do it */
+              int status = PMR_process_c_task((cluster_t<FloatingType> *) task->data,
+                              tid, procinfo, Wstruct,
+                              Zstruct, tolstruct, workQ,
+                              num_left, work, iwork);
+              
+              if (status == C_TASK_PROCESSED) {
+                free(task);
+              } else {
+                PMR_insert_task_at_back(workQ->r_queue, task);
+              }
+            } else {
+                PMR_insert_task_at_back(workQ->r_queue, task);
+            }
 
 		  } /* end if cluster task */
-
-		  if (task->flag == REFINE_TASK_FLAG) {
-		PMR_process_r_task((refine_t<FloatingType> *) task->data, procinfo,
-				   Wstruct, tolstruct, work, iwork);
-		free(task);
-		  }
-	 
+          else if (task->flag == REFINE_TASK_FLAG) {
+            PMR_process_r_task((refine_t<FloatingType> *) task->data, procinfo,
+                       Wstruct, tolstruct, work, iwork);
+            free(task);
+		  } 
 		} /* end if task removed */
 	  } /* end for t */
 	} /* end process_entire_r_queue */
@@ -125,28 +123,24 @@ namespace pmrrr { namespace detail {
 	  int              		 q         = rf->q;
 	  int              		 bl_size   = rf->bl_size;
 	  FloatingType           bl_spdiam = rf->bl_spdiam;
-	  sem_t            		 *sem      = rf->sem;
 
 	  FloatingType *restrict Werr      = Wstruct->Werr;
 	  FloatingType *restrict Wgap      = Wstruct->Wgap;
 	  int    *restrict 		 Windex    = Wstruct->Windex;
 	  FloatingType *restrict Wshifted  = Wstruct->Wshifted;
 	  
-	  FloatingType           rtol1     = tolstruct->rtol1;
-	  FloatingType           rtol2     = tolstruct->rtol2;
-	  FloatingType           pivmin    = tolstruct->pivmin;
-
-	  /* Others */
-	  int    	   info, offset;
 	  FloatingType savegap;
-
-	  offset = Windex[ts_begin] - 1;
 
 	  if (p == q) {
 		savegap = Wgap[ts_begin];
 		Wgap[ts_begin] = 0.0;
-	  }  
+	  }
 
+      int info;
+      int offset = Windex[ts_begin]-1;
+      FloatingType rtol1 = tolstruct->rtol1;
+      FloatingType rtol2 = tolstruct->rtol2;
+      FloatingType pivmin = tolstruct->pivmin;
 	  lapack::odrrb(&bl_size, D, DLL, &p, &q, &rtol1, &rtol2, &offset, 
 		  &Wshifted[ts_begin], &Wgap[ts_begin], &Werr[ts_begin],
 		  work, iwork, &pivmin, &bl_spdiam, &bl_size, &info);
@@ -156,10 +150,10 @@ namespace pmrrr { namespace detail {
 		Wgap[ts_begin] = savegap;
 	  }  
 
-	  sem_post(sem);
+	  PMR_refine_sem_post(rf);
 	  free(rf);
 
-	  return(0);
+	  return 0;
 	}
 
 } //namespace detail
