@@ -10,10 +10,13 @@
 #  http://opensource.org/licenses/BSD-2-Clause
 #
 
+# Create a set of defines for including in templated code
+set(pmrrr_defines "\n")
+
 option(HAVE_SPINLOCKS "Enable if pthread lib supports spinlocks" OFF)
 MARK_AS_ADVANCED(HAVE_SPINLOCKS)
 if(NOT HAVE_SPINLOCKS)
-  add_definitions(-DNOSPINLOCKS)
+  set(pmrrr_defines "${pmrrr_defines}#define NOSPINLOCKS\n")
 endif()
 
 # Include the header directory
@@ -24,9 +27,6 @@ include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # Define the header files installation rules
 # ------------------------------------------
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
 if(WIN32 OR APPLE OR NOT EL_HYBRID)
   # Disable for Windows because of lack of POSIX support;
   # disable for Mac OS X because of deprecation of unnamed semaphores
@@ -36,8 +36,20 @@ else()
   option(DISABLE_PTHREADS "Disable pthreads?" OFF)
 endif()
 if(DISABLE_PTHREADS)
-  add_definitions(-DDISABLE_PTHREADS)
+  set(pmrrr_defines "${pmrrr_defines}#define DISABLE_PTHREADS\n")
 endif()
+
+#Build directory
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/global.h.in"
+               "${PROJECT_BINARY_DIR}/include/pmrrr/definitions/global.h"
+               @ONLY)
+#Install directory
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/global.h.in"
+               "${CMAKE_INSTALL_INCLUDEDIR}/pmrrr/definitions/lobal.h"
+               @ONLY)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
 
 # Ensure that an MPI C compiler was found
 if(NOT MPI_C_FOUND)
