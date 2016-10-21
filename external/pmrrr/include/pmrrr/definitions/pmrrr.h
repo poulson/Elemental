@@ -78,7 +78,7 @@
 /* Make sure that eigenpairs are sorted globally; if set to false
  * they are in most cases sorted, but it is not double checked and 
  * can therefore not be guaranteed; default: true */
-#define ASSERT_SORTED_EIGENPAIRS true
+#define ASSERT_SORTED_EIGENPAIRS false
 
 /* Set flag if Rayleigh Quotient Correction should be used, 
  * which is usually faster; default: true */
