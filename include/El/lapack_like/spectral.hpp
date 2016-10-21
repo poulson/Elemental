@@ -703,6 +703,7 @@ struct HessenbergSchurCtrl
     Int winEnd=END;
     bool fullTriangle=true;
     bool wantSchurVecs=false;
+    bool accumulateSchurVecs=false;
     bool demandConverged=true;
 
     HessenbergSchurAlg alg=HESSENBERG_SCHUR_AED;
@@ -727,7 +728,7 @@ struct HessenbergSchurCtrl
 
     // For the distributed Hessenberg QR algorithm
     // TODO(poulson): Move this into a substructure?
-    bool scalapackAED=false;
+    bool scalapack=false;
     Int blockHeight=DefaultBlockHeight();
     // A map from the block height to the number of bulges per diagonal block in
     // the distributed multibulge algorithm.
@@ -749,6 +750,20 @@ HessenbergSchur
   Matrix<F>& Z,
   const HessenbergSchurCtrl& ctrl=HessenbergSchurCtrl() );
 
+template<typename F>
+HessenbergSchurInfo
+HessenbergSchur
+( AbstractDistMatrix<F>& H,
+  AbstractDistMatrix<Complex<Base<F>>>& w,
+  const HessenbergSchurCtrl& ctrl=HessenbergSchurCtrl() );
+template<typename F>
+HessenbergSchurInfo
+HessenbergSchur
+( AbstractDistMatrix<F>& H,
+  AbstractDistMatrix<Complex<Base<F>>>& w,
+  AbstractDistMatrix<F>& Z,
+  const HessenbergSchurCtrl& ctrl=HessenbergSchurCtrl() );
+
 namespace hess_schur {
 
 template<typename F>
@@ -756,6 +771,13 @@ void Sweep
 ( Matrix<F>& H,
   Matrix<Complex<Base<F>>>& shifts,
   Matrix<F>& Z,
+  const HessenbergSchurCtrl& ctrl );
+// TODO(poulson): Generalize to AbstractDistMatrix?
+template<typename F>
+void Sweep
+( DistMatrix<F,MC,MR,BLOCK>& H,
+  DistMatrix<Complex<Base<F>>,STAR,STAR>& shifts,
+  DistMatrix<F,MC,MR,BLOCK>& Z,
   const HessenbergSchurCtrl& ctrl );
 
 } // namespace hess_schur
@@ -791,42 +813,25 @@ template<typename F>
 void Schur
 ( Matrix<F>& A,
   Matrix<Complex<Base<F>>>& w,
-  bool fullTriangle=false,
-  const SchurCtrl<Base<F>> ctrl=SchurCtrl<Base<F>>() );
+  const SchurCtrl<Base<F>>& ctrl=SchurCtrl<Base<F>>() );
 template<typename F>
 void Schur
-( ElementalMatrix<F>& A,
-  ElementalMatrix<Complex<Base<F>>>& w,
-  bool fullTriangle=false,
-  const SchurCtrl<Base<F>> ctrl=SchurCtrl<Base<F>>() );
-template<typename F>
-void Schur
-( DistMatrix<F,MC,MR,BLOCK>& A,
-  ElementalMatrix<Complex<Base<F>>>& w,
-  bool fullTriangle=false,
-  const SchurCtrl<Base<F>> ctrl=SchurCtrl<Base<F>>() );
+( AbstractDistMatrix<F>& A,
+  AbstractDistMatrix<Complex<Base<F>>>& w,
+  const SchurCtrl<Base<F>>& ctrl=SchurCtrl<Base<F>>() );
 
 template<typename F>
 void Schur
 ( Matrix<F>& A,
   Matrix<Complex<Base<F>>>& w,
   Matrix<F>& Q,
-  bool fullTriangle=true,
-  const SchurCtrl<Base<F>> ctrl=SchurCtrl<Base<F>>() );
+  const SchurCtrl<Base<F>>& ctrl=SchurCtrl<Base<F>>() );
 template<typename F>
 void Schur
-( ElementalMatrix<F>& A,
-  ElementalMatrix<Complex<Base<F>>>& w, 
-  ElementalMatrix<F>& Q,
-  bool fullTriangle=true, 
-  const SchurCtrl<Base<F>> ctrl=SchurCtrl<Base<F>>() );
-template<typename F>
-void Schur
-( DistMatrix<F,MC,MR,BLOCK>& A,
-  ElementalMatrix<Complex<Base<F>>>& w, 
-  DistMatrix<F,MC,MR,BLOCK>& Q,
-  bool fullTriangle=true, 
-  const SchurCtrl<Base<F>> ctrl=SchurCtrl<Base<F>>() );
+( AbstractDistMatrix<F>& A,
+  AbstractDistMatrix<Complex<Base<F>>>& w, 
+  AbstractDistMatrix<F>& Q,
+  const SchurCtrl<Base<F>>& ctrl=SchurCtrl<Base<F>>() );
 
 namespace schur {
 
@@ -834,7 +839,7 @@ template<typename Real>
 void CheckRealSchur( const Matrix<Real>& U, bool standardForm=false );
 template<typename Real>
 void CheckRealSchur
-( const ElementalMatrix<Real>& U, bool standardForm=false );
+( const AbstractDistMatrix<Real>& U, bool standardForm=false );
 
 // NOTE: These will always throw an error
 template<typename Real>
@@ -842,7 +847,7 @@ void CheckRealSchur
 ( const Matrix<Complex<Real>>& U, bool standardForm=false );
 template<typename Real>
 void CheckRealSchur
-( const ElementalMatrix<Complex<Real>>& U, bool standardForm=false );
+( const AbstractDistMatrix<Complex<Real>>& U, bool standardForm=false );
 
 template<typename F>
 void QuasiTriangEig
@@ -857,22 +862,22 @@ void QuasiTriangEig
         Matrix<Complex<Base<F>>>& w );
 template<typename F>
 void QuasiTriangEig
-( const ElementalMatrix<F>& U,
-        ElementalMatrix<Complex<Base<F>>>& w );
+( const AbstractDistMatrix<F>& U,
+        AbstractDistMatrix<Complex<Base<F>>>& w );
 
 template<typename F>
 Matrix<Complex<Base<F>>> QuasiTriangEig( const Matrix<F>& U );
 template<typename F>
 DistMatrix<Complex<Base<F>>,VR,STAR> 
-QuasiTriangEig( const ElementalMatrix<F>& U );
+QuasiTriangEig( const AbstractDistMatrix<F>& U );
 
 template<typename Real>
 void RealToComplex
 ( const Matrix<Real>& UQuasi, Matrix<Complex<Real>>& U );
 template<typename Real>
 void RealToComplex
-( const ElementalMatrix<Real>& UQuasi, 
-        ElementalMatrix<Complex<Real>>& U );
+( const AbstractDistMatrix<Real>& UQuasi, 
+        AbstractDistMatrix<Complex<Real>>& U );
 
 template<typename Real>
 void RealToComplex
@@ -882,10 +887,10 @@ void RealToComplex
         Matrix<Complex<Real>>& Q );
 template<typename Real>
 void RealToComplex
-( const ElementalMatrix<Real>& UQuasi, 
-  const ElementalMatrix<Real>& QQuasi,
-        ElementalMatrix<Complex<Real>>& U,
-        ElementalMatrix<Complex<Real>>& Q );
+( const AbstractDistMatrix<Real>& UQuasi, 
+  const AbstractDistMatrix<Real>& QQuasi,
+        AbstractDistMatrix<Complex<Real>>& U,
+        AbstractDistMatrix<Complex<Real>>& Q );
 
 template<typename Real,typename=EnableIf<IsReal<Real>>>
 void TwoByTwo

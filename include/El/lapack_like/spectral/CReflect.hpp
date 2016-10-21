@@ -737,6 +737,7 @@ inline ElHessenbergSchurCtrl CReflect( const HessenbergSchurCtrl& ctrl )
     ctrlC.winEnd = ctrl.winEnd;
     ctrlC.fullTriangle = ctrl.fullTriangle;
     ctrlC.wantSchurVecs = ctrl.wantSchurVecs;
+    ctrlC.accumulateSchurVecs = ctrl.accumulateSchurVecs;
     ctrlC.demandConverged = ctrl.demandConverged;
 
     ctrlC.alg = CReflect(ctrl.alg);
@@ -768,7 +769,7 @@ inline ElHessenbergSchurCtrl CReflect( const HessenbergSchurCtrl& ctrl )
         RuntimeError
         ("Could not convert sufficientDeflation to C function pointer");
 
-    ctrlC.scalapackAED = ctrl.scalapackAED;
+    ctrlC.scalapack = ctrl.scalapack;
     ctrlC.blockHeight = ctrl.blockHeight;
     auto numBulgesPerBlockRes =
       ctrl.numBulgesPerBlock.target<ElInt(*)(ElInt)>();
@@ -788,6 +789,7 @@ inline HessenbergSchurCtrl CReflect( const ElHessenbergSchurCtrl& ctrlC )
     ctrl.winEnd = ctrlC.winEnd;
     ctrl.fullTriangle = ctrlC.fullTriangle;
     ctrl.wantSchurVecs = ctrlC.wantSchurVecs;
+    ctrl.accumulateSchurVecs = ctrlC.accumulateSchurVecs;
     ctrl.demandConverged = ctrlC.demandConverged;
 
     ctrl.alg = CReflect(ctrlC.alg);
@@ -802,7 +804,7 @@ inline HessenbergSchurCtrl CReflect( const ElHessenbergSchurCtrl& ctrlC )
     ctrl.deflationSize = ctrlC.deflationSize;
     ctrl.sufficientDeflation = ctrlC.sufficientDeflation;
 
-    ctrl.scalapackAED = ctrlC.scalapackAED;
+    ctrl.scalapack = ctrlC.scalapack;
     ctrl.blockHeight = ctrlC.blockHeight;
     ctrl.numBulgesPerBlock = ctrlC.numBulgesPerBlock;
 

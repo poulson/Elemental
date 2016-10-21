@@ -164,6 +164,13 @@ void Broadcast( AbstractDistMatrix<T>& A, mpi::Comm comm, int rank=0 );
 template<typename T>
 void Send( const Matrix<T>& A, mpi::Comm comm, int destination );
 
+// SendRecv
+// ========
+template<typename T>
+void SendRecv
+( const Matrix<T>& A, Matrix<T>& B, mpi::Comm comm,
+  int sendRank, int recvRank );
+
 // Recv
 // ====
 // On entry, the matrix 'A' must be of the correct size and will be overwritten
@@ -433,7 +440,7 @@ void Conjugate( const Matrix<T>& A, Matrix<T>& B );
 template<typename T>
 void Conjugate( AbstractDistMatrix<T>& A );
 template<typename T>
-void Conjugate( const ElementalMatrix<T>& A, ElementalMatrix<T>& B );
+void Conjugate( const AbstractDistMatrix<T>& A, AbstractDistMatrix<T>& B );
 
 // ConjugateDiagonal
 // =================
@@ -1547,6 +1554,11 @@ void Transform2x2
         Matrix<T>& a2 );
 template<typename T>
 void Transform2x2
+( const Matrix<T>& G,
+        AbstractDistMatrix<T>& a1,
+        AbstractDistMatrix<T>& a2 );
+template<typename T>
+void Transform2x2
 ( const AbstractDistMatrix<T>& G,
         AbstractDistMatrix<T>& a1,
         AbstractDistMatrix<T>& a2 );
@@ -1559,6 +1571,10 @@ void Transform2x2Rows
         Matrix<T>& A, Int i1, Int i2 );
 template<typename T>
 void Transform2x2Rows
+( const Matrix<T>& G,
+        AbstractDistMatrix<T>& A, Int i1, Int i2 );
+template<typename T>
+void Transform2x2Rows
 ( const AbstractDistMatrix<T>& G,
         AbstractDistMatrix<T>& A, Int i1, Int i2 );
 
@@ -1568,6 +1584,10 @@ template<typename T>
 void Transform2x2Cols
 ( const Matrix<T>& G,
         Matrix<T>& A, Int j1, Int j2 );
+template<typename T>
+void Transform2x2Cols
+( const Matrix<T>& G,
+        AbstractDistMatrix<T>& A, Int j1, Int j2 );
 template<typename T>
 void Transform2x2Cols
 ( const AbstractDistMatrix<T>& G,

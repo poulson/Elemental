@@ -38,9 +38,13 @@ void ComputeReflectors
     const bool haveSmallBulge = ( lastBulgeBeg == winEnd-3 );
     DEBUG_ONLY(
       if( lastBulgeBeg > winEnd-3 )
-          LogicError("Last bulge starts too late");
+          LogicError
+          ("Last bulge starts too late: lastBulgeBeg=",lastBulgeBeg,
+           ", winEnd=",winEnd);
     )
     const Int numFullBulges = ( haveSmallBulge ? numBulges-1 : numBulges );
+    if( W.Height() < 3 || W.Width() < numFullBulges )
+        W.Resize( 3, numFullBulges );
 
     // Set aside space for a Householder vector for a candidate reinflation of
     // a deflated bulge

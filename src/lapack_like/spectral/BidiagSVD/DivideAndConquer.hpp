@@ -174,10 +174,10 @@ Merge
     // 
     //   | r(0), rhoExtra | | cExtra,  -sExtra | = | gamma, 0 |.
     //                      | sExtra,   cExtra |
-    Real rhoExtra=0, cExtra=1, sExtra=0;
     if( n == m+1 )
     {
-        rhoExtra = beta*V1(0,m1);
+        Real cExtra=1, sExtra=0;
+        Real rhoExtra = beta*V1(0,m1);
         const Real gamma = SafeNorm( r(0), rhoExtra );
         if( gamma <= deflationTol )
         {
@@ -1025,10 +1025,10 @@ Merge
     // 
     //   | r(0), rhoExtra | | cExtra,  -sExtra | = | gamma, 0 |.
     //                      | sExtra,   cExtra |
-    Real rhoExtra=0, cExtra=1, sExtra=0;
     if( n == m+1 )
     {
-        rhoExtra = beta*v1FirstLoc(0,m1);
+        Real cExtra=1, sExtra=0;
+        Real rhoExtra = beta*v1FirstLoc(0,m1);
         const Real gamma = SafeNorm( r(0), rhoExtra );
         if( gamma <= deflationTol )
         {
@@ -1088,6 +1088,9 @@ Merge
                     }
                 }
             }
+            auto vNull_VC_STAR = V_VC_STAR( ALL, IR(m) );
+            auto vNull = V( ALL, IR(m) );
+            vNull = vNull_VC_STAR;
             // V(:,m) should now lie in the null space of the inner matrix.
         }
     }

@@ -12,6 +12,7 @@
 #include "./Simple.hpp"
 #include "./MultiBulge/TwoByTwo.hpp"
 #include "./MultiBulge/ComputeShifts.hpp"
+#include "./MultiBulge/RedundantlyHandleWindow.hpp"
 #include "./MultiBulge/Sweep.hpp"
 
 namespace El {
@@ -65,33 +66,30 @@ MultiBulge
             else
                 break;
         }
+        auto winInd = IR(winBeg,winEnd);
 
         // Detect an irreducible Hessenberg window, [iterBeg,winEnd)
         // ---------------------------------------------------------
-        Int iterBeg = winBeg;
-        auto winInd = IR(iterBeg,winEnd);
-        iterBeg += DetectSmallSubdiagonal( H(winInd,winInd) );
-        if( iterBeg > winBeg )
-        {
+        const Int iterOffset = DetectSmallSubdiagonal( H(winInd,winInd) );
+        const Int iterBeg = winBeg + iterOffset;
+        const Int iterWinSize = winEnd-iterBeg;
+        if( iterOffset > 0 )
             H(iterBeg,iterBeg-1) = zero;
-        }
-        if( iterBeg == winEnd-1 )
+        if( iterWinSize == 1 )
         {
             w(iterBeg) = H(iterBeg,iterBeg);
             --winEnd;
             numIterSinceDeflation = 0;
             continue;
         }
-        else if( iterBeg == winEnd-2 )
+        else if( iterWinSize == 2 )
         {
             multibulge::TwoByTwo( H, w, Z, iterBeg, ctrl );
             winEnd -= 2;
             numIterSinceDeflation = 0;
             continue;
         }
-
-        const Int iterWinSize = winEnd-iterBeg;
-        if( iterWinSize < minMultiBulgeSize )
+        else if( iterWinSize < minMultiBulgeSize )
         {
             // The window is small enough to switch to the simple scheme
             auto ctrlSub( ctrl );
@@ -149,35 +147,23 @@ MultiBulge
     Int winBeg = ( ctrl.winBeg==END ? n : ctrl.winBeg );
     Int winEnd = ( ctrl.winEnd==END ? n : ctrl.winEnd );
     const Int winSize = winEnd - winBeg;
+    const Int blockSize = H.BlockHeight();
 
     // TODO(poulson): Implement a more reasonable/configurable means of deciding
     // when to call the sequential implementation
-    Int minMultiBulgeSize = Max( ctrl.minMultiBulgeSize, 2*H.BlockSize() );
+    Int minMultiBulgeSize = Max( ctrl.minMultiBulgeSize, 2*blockSize );
     // This maximum is meant to account for parallel overheads and needs to be
     // more principled (and perhaps based upon the number of workers and the 
     // cluster characteristics)
-    minMultiBulgeSize = Max( minMultiBulgeSize, 500 );
+    // TODO(poulson): Re-enable this
+    //minMultiBulgeSize = Max( minMultiBulgeSize, 500 );
 
     HessenbergSchurInfo info;
 
     w.Resize( n, 1 );
     if( winSize < minMultiBulgeSize )
     {
-        DistMatrix<F,STAR,STAR> HFull( H );
-        DistMatrix<F,STAR,STAR> ZFull( H.Grid() );
-        if( ctrl.wantSchurVecs )
-        {
-            ZFull = Z;
-            // In case Z was not n x n, ensure that ZFull is
-            ZFull.Resize( n, n );
-        }
-
-        auto info = Simple( HFull.Matrix(), w.Matrix(), ZFull.Matrix(), ctrl );
-
-        H = HFull;
-        if( ctrl.wantSchurVecs )
-            Z = ZFull;
-        return info;
+        return multibulge::RedundantlyHandleWindow( H, w, Z, ctrl );
     }
 
     auto ctrlShifts( ctrl );
@@ -210,53 +196,62 @@ MultiBulge
         // TODO(poulson): Have the interblock chase from the previous sweep
         // collect the main and sub diagonal of H along the diagonal workers 
         // and then broadcast across the "cross" communicator.
-        multibulge::GatherTridiagonal
-        ( H, winInd, hMainWin, hSubWin, hSuperWin );
+        util::GatherTridiagonal( H, winInd, hMainWin, hSubWin, hSuperWin );
+        Output("winBeg=",winBeg,", winEnd=",winEnd);
+        Print( H, "H" );
+        Print( hMainWin, "hMainWin" );
+        Print( hSubWin, "hSubWin" );
+        Print( hSuperWin, "hSuperWin" );
 
         const Int iterOffset =
-          DetectSmallSubdiagonal( hMainWin, hSubWin, hSuperWin );
-        const Int iterBeg = winEnd + iterOffset;
+          DetectSmallSubdiagonal
+          ( hMainWin.Matrix(), hSubWin.Matrix(), hSuperWin.Matrix() );
+        const Int iterBeg = winBeg + iterOffset;
+        const Int iterWinSize = winEnd-iterBeg;
         if( iterOffset > 0 )
         {
             H.Set( iterBeg, iterBeg-1, zero );
-            hSubWin.Set( iterOffset, 0, zero );
+            hSubWin.Set( iterOffset-1, 0, zero );
         }
-        if( iterBeg == winEnd-1 )
+        if( iterWinSize == 1 )
         {
+            if( ctrl.progress )
+                Output("One-by-one window at ",iterBeg);
             w.Set( iterBeg, 0, hMainWin.GetLocal(iterOffset,0) );
-            --winEnd;
-            numIterSinceDeflation = 0;
-            continue;
-        }
-        else if( iterBeg == winEnd-2 )
-        {
-            const Real eta00 = hMainWin.GetLocal(iterOffset,0);
-            const Real eta01 = hSuperWin.GetLocal(iterOffset,0);
-            const Real eta10 = hSubWin.GetLocal(iterOffset,0);
-            const Real eta11 = hMainWin.GetLocal(iterOffset+1,0);
-            multibulge::TwoByTwo
-            ( H, eta00, eta01, eta10, eta11, Z, iterBeg, ctrl );
-            winEnd -= 2;
-            numIterSinceDeflation = 0;
-            continue;
-        }
 
-        const Int iterWinSize = winEnd-iterBeg;
-        if( iterWinSize < minMultiBulgeSize )
+            winEnd = iterBeg;
+            numIterSinceDeflation = 0;
+            continue;
+        }
+        else if( iterWinSize == 2 )
+        {
+            if( ctrl.progress )
+                Output("Two-by-two window at ",iterBeg);
+            const F eta00 = hMainWin.GetLocal(iterOffset,0);
+            const F eta01 = hSuperWin.GetLocal(iterOffset,0);
+            const Real eta10 = hSubWin.GetLocal(iterOffset,0);
+            const F eta11 = hMainWin.GetLocal(iterOffset+1,0);
+            multibulge::TwoByTwo
+            ( H, eta00, eta01, eta10, eta11, w, Z, iterBeg, ctrl );
+
+            winEnd = iterBeg;
+            numIterSinceDeflation = 0;
+            continue;
+        }
+        else if( iterWinSize < minMultiBulgeSize )
         {
             // The window is small enough to switch to the simple scheme
-            //
-            // TODO(poulson): Have all workers independently process the
-            // diagonal block and then apply the transformation into the
-            // remainder of the matrix.
-            LogicError("This section is not yet finished");
-            /*
-            auto ctrlSub( ctrl );
-            ctrlSub.winBeg = iterBeg;
-            ctrlSub.winEnd = winEnd;
-            Simple( H, w, Z, ctrlSub );
-            */
+            if( ctrl.progress )
+                Output("Redundantly handling window [",iterBeg,",",winEnd,"]");
+            auto ctrlIter( ctrl );
+            ctrlIter.winBeg = iterBeg;
+            ctrlIter.winEnd = winEnd;
+            auto iterInfo =
+              multibulge::RedundantlyHandleWindow( H, w, Z, ctrlIter );
+            info.numIterations += iterInfo.numIterations;
+             
             winEnd = iterBeg;
+            numIterSinceDeflation = 0;
             continue;
         }
 

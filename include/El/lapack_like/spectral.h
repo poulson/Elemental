@@ -599,6 +599,7 @@ typedef struct {
   ElInt winEnd;
   bool fullTriangle;
   bool wantSchurVecs;
+  bool accumulateSchurVecs;
   bool demandConverged;
 
   ElHessenbergSchurAlg alg;
@@ -614,7 +615,7 @@ typedef struct {
   ElInt (*deflationSize)(ElInt,ElInt,ElInt);
   ElInt (*sufficientDeflation)(ElInt);
 
-  bool scalapackAED;
+  bool scalapack;
   ElInt blockHeight;
   ElInt (*numBulgesPerBlock)(ElInt);
 } ElHessenbergSchurCtrl;

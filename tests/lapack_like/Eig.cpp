@@ -25,10 +25,7 @@ void TestCorrectness
 
     // Find the residual R = AV-VW
     Matrix<Complex<Real>> R( V.Height(), V.Width() );
-    Gemm
-    ( NORMAL, NORMAL,
-      Complex<Real>(1), A, V,
-      Complex<Real>(0), R);
+    Gemm( NORMAL, NORMAL, Complex<Real>(1), A, V, R );
     Matrix<Complex<Real>> VW( V );
     DiagonalScale( RIGHT, NORMAL, w, VW );
     R -= VW;
@@ -55,10 +52,7 @@ void TestCorrectness
 
     // Find the residual R = AV-VW
     DistMatrix<Complex<Real>> R( V.Height(), V.Width(), A.Grid() );
-    Gemm
-    ( NORMAL, NORMAL,
-      Complex<Real>(1), A, V,
-      Complex<Real>(0), R);
+    Gemm( NORMAL, NORMAL, Complex<Real>(1), A, V, R );
     DistMatrix<Complex<Real>> VW( V );
     DiagonalScale( RIGHT, NORMAL, w, VW );
     R -= VW;
@@ -103,6 +97,7 @@ void EigBenchmark
 
     SchurCtrl<Real> schurCtrl;
     schurCtrl.time = true;
+    schurCtrl.hessSchurCtrl.fullTriangle = true;
 
     // Compute eigenvectors with Elemental
     Output("Elemental");
@@ -111,12 +106,13 @@ void EigBenchmark
     Output("Schur decomposition...");
     PushIndent();
     timer.Start();
-    Schur( A, w, V, true, schurCtrl );
+    Schur( A, w, V, schurCtrl );
     Output("Time = ",timer.Stop()," seconds");
     PopIndent();
     if( print )
     {
         Print( A, "T" );
+        Print( w, "w" );
         Print( V, "Q" );
     }
     Output("Triangular eigensolver...");
@@ -226,7 +222,7 @@ void EigBenchmark
   bool correctness,
   bool print,
   Int whichMatrix,
-  bool scalapackAED,
+  bool scalapack,
   Int blockHeight )
 {
     OutputFromRoot( g.Comm(), "Testing with ", TypeName<Real>() );
@@ -251,7 +247,8 @@ void EigBenchmark
     Timer timer;
  
     SchurCtrl<Real> schurCtrl;
-    schurCtrl.hessSchurCtrl.scalapackAED = scalapackAED;
+    schurCtrl.hessSchurCtrl.fullTriangle = true;
+    schurCtrl.hessSchurCtrl.scalapack = scalapack;
     schurCtrl.hessSchurCtrl.blockHeight = blockHeight;
     schurCtrl.time = true;
 
@@ -262,7 +259,7 @@ void EigBenchmark
     OutputFromRoot(g.Comm(),"Schur decomposition...");
     PushIndent();
     timer.Start();
-    Schur( A, w, V, true, schurCtrl );
+    Schur( A, w, V, schurCtrl );
     OutputFromRoot(g.Comm(),"Time = ",timer.Stop()," seconds");
     PopIndent();
     if( print )
@@ -312,12 +309,12 @@ main( int argc, char* argv[] )
         const Int blockHeight =
           Input("--blockHeight","ScaLAPACK block height",32);
         // NOTE: Distributed AED is not supported by ScaLAPACK for complex :-(
-        const bool scalapackAED =
+        const bool scalapack =
           Input
-          ("--scalapackAED",
-           "Distributed Aggressive Early Deflation? (it can be buggy...)",
-           false);
+          ("--scalapack","Use ScaLAPACK for the distributed solver?",false);
         const bool sequential = Input("--sequential","test sequential?",true);
+        const bool distributed =
+          Input("--distributed","test distributed?",true);
         const bool correctness =
           Input("--correctness","test correctness?",true);
         const bool print = Input("--print","print matrices?",false);
@@ -341,11 +338,15 @@ main( int argc, char* argv[] )
             EigBenchmark<double>
             ( n, correctness, print, whichMatrix );
         }
-
-        EigBenchmark<float>
-        ( grid, n, correctness, print, whichMatrix, scalapackAED, blockHeight );
-        EigBenchmark<double>
-        ( grid, n, correctness, print, whichMatrix, scalapackAED, blockHeight );
+        if( distributed )
+        {
+            EigBenchmark<float>
+            ( grid, n, correctness, print, whichMatrix, scalapack,
+              blockHeight );
+            EigBenchmark<double>
+            ( grid, n, correctness, print, whichMatrix, scalapack,
+              blockHeight );
+        }
     }
     catch( exception& e ) { ReportException(e); }
 
