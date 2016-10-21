@@ -73,6 +73,7 @@ namespace pmrrr { namespace detail {
     void PMR_rrr_destroy_lock(rrr_t<FloatingType> *RRR)
     {
     #ifndef DISABLE_PTHREADS
+      fprintf(stderr, "Destroy mutex");
       pthread_mutex_destroy(&RRR->mutex);
     #endif
     }
@@ -92,6 +93,7 @@ namespace pmrrr { namespace detail {
         fprintf(stderr,"pthread_mutex_lock returned EPERM\n");
       else
         fprintf(stderr,"pthread_mutex_lock returned %d\n",info);
+      fprintf(stderr, "mutex: %d\n", &RRR->mutex);
       assert(info == 0);
       return info;
     #else

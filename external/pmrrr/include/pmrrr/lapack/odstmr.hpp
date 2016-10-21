@@ -66,59 +66,22 @@ namespace pmrrr { namespace lapack {
 		FloatingType rmin, rmax;
 		int itmp;
 		FloatingType tnrm;
-		//extern /* Subroutine */ int ode2_(FloatingType *, FloatingType *, FloatingType 
-			//*, FloatingType *, FloatingType *);
 		int inde2, itmp2;
 		FloatingType rtol1, rtol2;
-	//    extern /* Subroutine */ int odscl_(int *, FloatingType *, FloatingType *, 
-	//	    int *);
 		FloatingType scale;
 		int indgp;
-		//extern int olsame(char *, char *);
 		int iinfo, iindw, ilast;
-		 /* Subroutine */ 
-	//    extern int odswap_(int *, FloatingType *, int 
-	//	    *, FloatingType *, int *);
 		int lwmin;
 		int wantz;
-		//extern /* Subroutine */ int odev2_(FloatingType *, FloatingType *, 
-			//FloatingType *, FloatingType *, FloatingType *, FloatingType *, 
-			//FloatingType *);
-		//extern FloatingType odmch_(char *);
 		int alleig;
 		int ibegin;
 		int indeig;
 		int iindbl;
 		int valeig;
-	//    extern /* Subroutine */ int odrrc_(char *, int *, FloatingType *, 
-	//	    FloatingType *, FloatingType *, FloatingType *, FloatingType *, int *, 
-	//	     int *, int *, int *);
-		/* Subroutine *//*extern  int odrre_(char *, 
-			int *, FloatingType *, FloatingType *, int *, int *, 
-			FloatingType *, FloatingType *, FloatingType *, FloatingType *, 
-			FloatingType *, FloatingType *, int *, int *, int *, 
-			FloatingType *, FloatingType *, FloatingType *, int *, int *, 
-			FloatingType *, FloatingType *, FloatingType *, int *, int *);*/
 		int wbegin;
 		FloatingType safmin;
-	//    extern /* Subroutine */ int odrrj_(int *, FloatingType *, FloatingType *, 
-	//	     int *, int *, FloatingType *, int *, FloatingType *, 
-	//	    FloatingType *, FloatingType *, int *, FloatingType *, FloatingType *, 
-	//	     int *);
-		//extern /* Subroutine */ int oerbla_(char *, int *);
 		FloatingType bignum;
 		int inderr, iindwk, indgrs, offset;
-		//extern FloatingType odnst_(char *, int *, FloatingType *, FloatingType *);
-	//    extern /* Subroutine */ int odrrr_(int *, FloatingType *, FloatingType *, 
-	//	     int *);
-		//extern /* Subroutine */ int odrrv_(int *, FloatingType *, FloatingType *, 
-			/*FloatingType *, FloatingType *, FloatingType *, int *, int *, 
-			int *, int *, FloatingType *, FloatingType *, FloatingType *, 
-			FloatingType *, FloatingType *, FloatingType *, int *, int *, 
-			FloatingType *, FloatingType *, int *, int *, FloatingType *, 
-			int *, int *);
-		//extern /* Subroutine */// int odsrt_(char *, int *, FloatingType *, 
-			//int *);
 		FloatingType thresh;
 		int iinspl, ifirst, indwrk, liwmin, nzcmin;
 		FloatingType pivmin;

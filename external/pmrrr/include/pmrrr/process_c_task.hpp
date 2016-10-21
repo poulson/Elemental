@@ -784,38 +784,38 @@ namespace pmrrr { namespace detail {
 			  new_ftt2 = Zindex[my_first + 1];
 
 			  if (copy_parent_rrr == true) {
-			/* Copy parent RRR into alloceted arrays and mark them
-			 * for freeing later */
-			D_parent = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
-			assert(D_parent != NULL);
-	
-			L_parent = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
-			assert(L_parent != NULL);
+                /* Copy parent RRR into alloceted arrays and mark them
+                 * for freeing later */
+                D_parent = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
+                assert(D_parent != NULL);
+        
+                L_parent = (FloatingType *) malloc(bl_size * sizeof(FloatingType));
+                assert(L_parent != NULL);
 
-			memcpy(D_parent, RRR->D, bl_size*sizeof(FloatingType));
-			memcpy(L_parent, RRR->L, bl_size*sizeof(FloatingType));
+                memcpy(D_parent, RRR->D, bl_size*sizeof(FloatingType));
+                memcpy(L_parent, RRR->L, bl_size*sizeof(FloatingType));
 
-			/* 
-			 * We have to explicitly specify the type because neither NULL nor nullptr
-			 * can't be used for template type deduction.
-			 */
-			RRR_parent = PMR_create_rrr<FloatingType>(D_parent, L_parent, NULL, 
-							NULL, bl_size, depth);
-			PMR_set_copied_parent_rrr_flag(RRR_parent, true);
+                /* 
+                 * We have to explicitly specify the type because neither NULL nor nullptr
+                 * can't be used for template type deduction.
+                 */
+                RRR_parent = PMR_create_rrr<FloatingType>(D_parent, L_parent, NULL, 
+                                NULL, bl_size, depth);
+                PMR_set_copied_parent_rrr_flag(RRR_parent, true);
 
 			  } else {
-			/* copy parent RRR into Z to make cluster task independent */
-			memcpy(&Z[new_ftt1*ldz+bl_begin], RRR->D, 
-				   bl_size*sizeof(FloatingType));
-			memcpy(&Z[new_ftt2*ldz+bl_begin], RRR->L, 
-				   bl_size*sizeof(FloatingType));
-			/* 
-			 * We have to explicitly specify the type because neither NULL nor nullptr
-			 * can't be used for template type deduction.
-			 */
-			RRR_parent = PMR_create_rrr<FloatingType>(&Z[new_ftt1*ldz + bl_begin],
-							&Z[new_ftt2*ldz + bl_begin],
-							NULL, NULL, bl_size, depth);
+                /* copy parent RRR into Z to make cluster task independent */
+                memcpy(&Z[new_ftt1*ldz+bl_begin], RRR->D, 
+                       bl_size*sizeof(FloatingType));
+                memcpy(&Z[new_ftt2*ldz+bl_begin], RRR->L, 
+                       bl_size*sizeof(FloatingType));
+                /* 
+                 * We have to explicitly specify the type because neither NULL nor nullptr
+                 * can't be used for template type deduction.
+                 */
+                RRR_parent = PMR_create_rrr<FloatingType>(&Z[new_ftt1*ldz + bl_begin],
+                                &Z[new_ftt2*ldz + bl_begin],
+                                NULL, NULL, bl_size, depth);
 			  }
 			  
 			  /* Create the task for the cluster and put it in the queue */ 
