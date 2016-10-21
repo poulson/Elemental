@@ -38,7 +38,6 @@ Estimate EigEstimate
 {
     DEBUG_ONLY(CSE cse("herm_tridiag_eig::EigEstimate"))
 
-    std::cout << "PMR^3" << std::endl;
     Estimate estimate;
     char jobz='C';
     char range='V';
@@ -64,7 +63,6 @@ Info Eig( int n, FloatingType* d, FloatingType* e, FloatingType* w, mpi::Comm co
 {
     DEBUG_ONLY(CSE cse("herm_tridiag_eig::Eig"))
 
-    std::cout << "PMR^3" << std::endl;
     Info info;
     char jobz='N';
     char range='A';
@@ -92,7 +90,7 @@ Info Eig
 ( int n, FloatingType* d, FloatingType* e, FloatingType* w, FloatingType* Z, int ldz, mpi::Comm comm )
 {
     DEBUG_ONLY(CSE cse("herm_tridiag_eig::Eig"))
-    std::cout << "PMR^3" << std::endl;
+ 
     Info info;
     char jobz='V';
     char range='A';
@@ -121,7 +119,6 @@ Info Eig
 {
     DEBUG_ONLY(CSE cse("herm_tridiag_eig::Eig"))
 
-    std::cout << "PMR^3" << std::endl;
     Info info;
     char jobz='N';
     char range='V';
@@ -150,7 +147,6 @@ Info Eig
 {
     DEBUG_ONLY(CSE cse("herm_tridiag_eig::Eig"))
 
-    std::cout << "PMR^3" << std::endl;
     Info info;
     char jobz='V';
     char range='V';
@@ -178,7 +174,6 @@ Info Eig
 {
     DEBUG_ONLY(CSE cse("herm_tridiag_eig::Eig"))
 
-    std::cout << "PMR^3" << std::endl;
     Info info;
     ++lowerBound;
     ++upperBound;
@@ -210,7 +205,6 @@ Info Eig
 {
     DEBUG_ONLY(CSE cse("herm_tridiag_eig::Eig"))
 
-    std::cout << "PMR^3" << std::endl;
     Info info;
     ++lowerBound;
     ++upperBound;
