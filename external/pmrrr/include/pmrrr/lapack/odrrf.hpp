@@ -262,7 +262,7 @@ namespace pmrrr { namespace lapack {
 	/* L6: */
 		}
 		sawnan1 = sawnan1 || odnan(&max1);
-		if (forcer || max1 <= growthbound && ! sawnan1) {
+		if (forcer || (max1 <= growthbound && ! sawnan1)) {
 		*sigma = lsigma;
 		shift = 1;
 		goto L100;
@@ -294,7 +294,7 @@ namespace pmrrr { namespace lapack {
 	/* L7: */
 		}
 		sawnan2 = sawnan2 || odnan(&max2);
-		if (forcer || max2 <= growthbound && ! sawnan2) {
+		if (forcer || (max2 <= growthbound && ! sawnan2)) {
 		*sigma = rsigma;
 		shift = 2;
 		goto L100;

@@ -306,8 +306,8 @@ namespace pmrrr { namespace lapack {
 		bsrtol = sqrt(eps);
 	/*     Treat case of 1x1 matrix for quick return */
 		if (*n == 1) {
-		if (irange == 1 || irange == 3 && d__[1] > *vl && d__[1] <= *vu || 
-			irange == 2 && *il == 1 && *iu == 1) {
+		if (irange == 1 || (irange == 3 && d__[1] > *vl && d__[1] <= *vu) || 
+			(irange == 2 && *il == 1 && *iu == 1) ) {
 			*m = 1;
 			w[1] = d__[1];
 	/*           The computation error of the eigenvalue is zero */
@@ -407,8 +407,8 @@ namespace pmrrr { namespace lapack {
 		in = iend - ibegin + 1;
 	/*        1 X 1 block */
 		if (in == 1) {
-			if (irange == 1 || irange == 3 && d__[ibegin] > *vl && d__[ibegin]
-				 <= *vu || irange == 2 && iblock[wbegin] == jblk) {
+			if (irange == 1 || (irange == 3 && d__[ibegin] > *vl && d__[ibegin]
+				 <= *vu) || (irange == 2 && iblock[wbegin] == jblk) ) {
 			++(*m);
 			w[*m] = d__[ibegin];
 			werr[*m] = 0.;
@@ -487,7 +487,7 @@ namespace pmrrr { namespace lapack {
 			indu = indexw[wend];
 			}
 		}
-		if (irange == 1 && ! forceb || usedqd) {
+		if ((irange == 1 && ! forceb) || usedqd) {
 	/*           Case of DQDS */
 	/*           Find approximations to the extremal eigenvalues of the block */
 			odrrk(&in, &c__1, &gl, &gu, &d__[ibegin], &e2[ibegin], pivmin, &

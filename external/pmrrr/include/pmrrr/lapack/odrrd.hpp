@@ -350,8 +350,8 @@ namespace pmrrr { namespace lapack {
 	/*     Special Case when N=1 */
 	/*     Treat case of 1x1 matrix for quick return */
 		if (*n == 1) {
-		if (irange == 1 || irange == 2 && d__[1] > *vl && d__[1] <= *vu || 
-			irange == 3 && *il == 1 && *iu == 1) {
+		if (irange == 1 || (irange == 2 && d__[1] > *vl && d__[1] <= *vu) || 
+			(irange == 3 && *il == 1 && *iu == 1)) {
 			*m = 1;
 			w[1] = d__[1];
 	/*           The computation error of the eigenvalue is zero */
@@ -478,8 +478,8 @@ namespace pmrrr { namespace lapack {
 			if (*wu >= d__[ibegin] - *pivmin) {
 			++nwu;
 			}
-			if (irange == 1 || *wl < d__[ibegin] - *pivmin && *wu >= d__[
-				ibegin] - *pivmin) {
+			if (irange == 1 || (*wl < d__[ibegin] - *pivmin && *wu >= d__[
+				ibegin] - *pivmin)) {
 			++(*m);
 			w[*m] = d__[ibegin];
 			werr[*m] = 0.;
@@ -748,7 +748,7 @@ namespace pmrrr { namespace lapack {
 		}
 		}
 
-		if (irange == 1 && *m != *n || irange == 3 && *m != *iu - *il + 1) {
+		if ((irange == 1 && *m != *n) || (irange == 3 && *m != *iu - *il + 1)) {
 		toofew = TRUE_;
 		}
 	/*     If ORDER='B', do nothing the eigenvalues are already sorted by */

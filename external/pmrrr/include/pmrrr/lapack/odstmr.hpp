@@ -367,7 +367,7 @@ namespace pmrrr { namespace lapack {
 		*info = -8;
 		} else if (indeig && (iiu < iil || iiu > *n)) {
 		*info = -9;
-		} else if (*ldz < 1 || wantz && *ldz < *n) {
+		} else if (*ldz < 1 || (wantz && *ldz < *n)) {
 		*info = -13;
 		} else if (*lwork < lwmin && ! lquery) {
 		*info = -17;
@@ -448,7 +448,7 @@ namespace pmrrr { namespace lapack {
 		} else if (wantz && ! zquery) {
 			odev2(&d__[1], &e[1], &d__[2], &r1, &r2, &cs, &sn);
 		}
-		if (alleig || valeig && r2 > wl && r2 <= wu || indeig && iil == 1) {
+		if (alleig || (valeig && r2 > wl && r2 <= wu) || (indeig && iil == 1)) {
 			++(*m);
 			w[*m] = r2;
 			if (wantz && ! zquery) {
@@ -469,7 +469,7 @@ namespace pmrrr { namespace lapack {
 			}
 			}
 		}
-		if (alleig || valeig && r1 > wl && r1 <= wu || indeig && iiu == 2) {
+		if (alleig || (valeig && r1 > wl && r1 <= wu) || (indeig && iiu == 2)) {
 			++(*m);
 			w[*m] = r1;
 			if (wantz && ! zquery) {
