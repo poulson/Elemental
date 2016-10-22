@@ -42,7 +42,7 @@
  */
 
 #ifndef __LAPACK_HPP___
-#define __LAPACK_HPP__
+#define __LAPACK_HPP___
 
 namespace pmrrr { namespace lapack {
 
