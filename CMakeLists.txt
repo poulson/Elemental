@@ -435,6 +435,7 @@ endif()
 # Elemental's mod's of Parallel Multiple Relatively Robust Representations
 # ------------------------------------------------------------------------
 add_subdirectory(external/pmrrr)
+include_directories(external/pmrrr/include)
 if(EL_BUILT_SCALAPACK)
   add_dependencies(pmrrr project_scalapack)
 else()

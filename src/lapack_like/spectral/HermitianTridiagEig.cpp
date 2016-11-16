@@ -1141,11 +1141,11 @@ MRRRHelper
     QCtrl.rowAlign = 0;
 
     DistMatrixWriteProxy<Real,Real,VR,STAR> wProx( wPre, wCtrl );
-    DistMatrixWriteProxy<Real,double,STAR,VR> QProx( QPre, QCtrl );
+    DistMatrixWriteProxy<Real,Real,STAR,VR> QProx( QPre, QCtrl );
     auto& w = wProx.Get();
     auto& Q = QProx.Get();
 
-    DistMatrix<double,STAR,STAR> d_STAR_STAR(g), dSub_STAR_STAR(g);
+    DistMatrix<Real,STAR,STAR> d_STAR_STAR(g), dSub_STAR_STAR(g);
     Copy( d, d_STAR_STAR );
     dSub_STAR_STAR.Resize( n-1, 1, n );
     Copy( dSub, dSub_STAR_STAR );
@@ -1153,7 +1153,7 @@ MRRRHelper
     Int k;
     if( ctrl.subset.rangeSubset )
     {
-        vector<double> dVector(n), dSubVector(n), wVector(n);
+        vector<Real> dVector(n), dSubVector(n), wVector(n);
         MemCopy( dVector.data(), d_STAR_STAR.Buffer(), n );
         MemCopy( dSubVector.data(), dSub_STAR_STAR.Buffer(), n-1 );
         auto estimate = herm_tridiag_eig::EigEstimate
@@ -1171,7 +1171,7 @@ MRRRHelper
     Q.Resize( n, k );
 
     herm_tridiag_eig::Info rangeInfo;
-    vector<double> wVector(n);
+    vector<Real> wVector(n);
     if( ctrl.subset.rangeSubset )
         rangeInfo = herm_tridiag_eig::Eig
           ( int(n), d_STAR_STAR.Buffer(), dSub_STAR_STAR.Buffer(), 
@@ -1215,14 +1215,14 @@ MRRRHelper
     typedef Complex<Real> C;
     HermitianTridiagEigInfo info;
 
-    DistMatrix<double,STAR,STAR> d_STAR_STAR(g);
-    DistMatrix<Complex<double>,STAR,STAR> dSub_STAR_STAR(g);
+    DistMatrix<Real,STAR,STAR> d_STAR_STAR(g);
+    DistMatrix<Complex<Real>,STAR,STAR> dSub_STAR_STAR(g);
     Copy( d, d_STAR_STAR );
     dSub_STAR_STAR.Resize( n-1, 1, n );
     Copy( dSub, dSub_STAR_STAR );
 
-    DistMatrix<double,STAR,STAR> dSubReal(g);
-    DistMatrix<Complex<double>,STAR,STAR> phase(g);
+    DistMatrix<Real,STAR,STAR> dSubReal(g);
+    DistMatrix<Complex<Real>,STAR,STAR> phase(g);
     RemovePhase( dSub_STAR_STAR, dSubReal, phase );
 
     ElementalProxyCtrl wCtrl, QCtrl;
@@ -1239,7 +1239,7 @@ MRRRHelper
     Int k;
     if( ctrl.subset.rangeSubset )
     {
-        vector<double> dVector(n), dSubVector(n), wVector(n);
+        vector<Real> dVector(n), dSubVector(n), wVector(n);
         MemCopy( dVector.data(), d_STAR_STAR.Buffer(), n );
         MemCopy( dSubVector.data(), dSubReal.Buffer(), n-1 );
         auto estimate = herm_tridiag_eig::EigEstimate
@@ -1254,11 +1254,11 @@ MRRRHelper
         k = ( n==0 ? 0 : ctrl.subset.upperIndex-ctrl.subset.lowerIndex+1 );
     else
         k = n;
-    DistMatrix<double,STAR,VR> QReal(g);
+    DistMatrix<Real,STAR,VR> QReal(g);
     QReal.Resize( n, k );
 
     herm_tridiag_eig::Info rangeInfo;
-    vector<double> wVector(n);
+    vector<Real> wVector(n);
     if( ctrl.subset.rangeSubset )
         rangeInfo = herm_tridiag_eig::Eig
           ( int(n), d_STAR_STAR.Buffer(), dSubReal.Buffer(), 
@@ -1407,12 +1407,12 @@ Int MRRREstimateHelper
 {
     DEBUG_CSE
     const Int n = d.Height();
-    DistMatrix<double,STAR,STAR> d_STAR_STAR( d.Grid() );
-    DistMatrix<double,STAR,STAR> dSub_STAR_STAR( d.Grid() );
+    DistMatrix<Real,STAR,STAR> d_STAR_STAR( d.Grid() );
+    DistMatrix<Real,STAR,STAR> dSub_STAR_STAR( d.Grid() );
     Copy( d, d_STAR_STAR );
     dSub_STAR_STAR.Resize( n-1, 1, n );
     Copy( dSub, dSub_STAR_STAR );
-    vector<double> dVector(n), dSubVector(n), wVector(n);
+    vector<Real> dVector(n), dSubVector(n), wVector(n);
     MemCopy( dVector.data(), d_STAR_STAR.Buffer(), n );
     MemCopy( dSubVector.data(), dSub_STAR_STAR.Buffer(), n-1 );
     auto estimate = herm_tridiag_eig::EigEstimate
