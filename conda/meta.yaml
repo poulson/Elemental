@@ -10,12 +10,18 @@ build:
     - lib/
     - lib64/
 
+extra:
+  channels:
+    - defaults
+    - conda-forge
+
 requirements:
   build:
     - gcc >=4.8.5
     - python >=2.7,<3
     - openblas
     - mpich2
+    - mpc
     - git
     - cmake >=2.8
   
@@ -24,6 +30,7 @@ requirements:
     - python >=2.7,<3
     - openblas
     - mpich2
+    - mpc
     - numpy
     - matplotlib
     - networkx
