@@ -450,16 +450,20 @@ endif()
 
 # Elemental's mod's of Parallel Multiple Relatively Robust Representations
 # ------------------------------------------------------------------------
-add_subdirectory(external/pmrrr)
-if(EL_BUILT_SCALAPACK)
-  add_dependencies(pmrrr project_scalapack)
-else()
-  if(EL_BUILT_BLIS_LAPACK)
-    add_dependencies(pmrrr project_blis_lapack)
-  endif()
-  if(EL_BUILT_OPENBLAS)
-    add_dependencies(pmrrr project_openblas)
-  endif()
+if(NOT EL_DISABLE_PMRRR)
+   set(PMRRR "pmrrr")
+   add_subdirectory(external/pmrrr)
+   if(EL_BUILT_SCALAPACK)
+     add_dependencies(pmrrr project_scalapack)
+   else()
+     if(EL_BUILT_BLIS_LAPACK)
+       add_dependencies(pmrrr project_blis_lapack)
+     endif()
+     if(EL_BUILT_OPENBLAS)
+       add_dependencies(pmrrr project_openblas)
+     endif()
+   endif()
+   add_definitions("-DEL_DISABLE_PMRRR")
 endif()
 
 # Elemental's modifications of (a subset of) SuiteSparse
@@ -528,7 +532,7 @@ endif()
 if(EL_BUILT_PARMETIS)
   add_dependencies(El project_parmetis)
 endif()
-set(LINK_LIBS pmrrr ElSuiteSparse
+set(LINK_LIBS ${PMRRR} ElSuiteSparse
   ${EXTERNAL_LIBS} ${MATH_LIBS} ${MPI_CXX_LIBRARIES})
 if(EL_HAVE_QT5)
   set(LINK_LIBS ${LINK_LIBS} ${Qt5Widgets_LIBRARIES})
@@ -756,7 +760,7 @@ include(CPack)
 # =====
 # Create ElementalConfig.cmake for find_package.
 # Add all targets to the build-tree export set
-export(TARGETS El pmrrr ElSuiteSparse
+export(TARGETS El ${PMRRR} ElSuiteSparse
   FILE "${PROJECT_BINARY_DIR}/ElementalTargets.cmake")
 
 if(NOT CMAKE_EXPORT_NO_PACKAGE_REGISTRY)
