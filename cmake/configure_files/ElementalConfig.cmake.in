@@ -8,13 +8,26 @@ IF(@MPC_FOUND@)
    set(Elemental_INCLUDE_DIRS "${Elemental_INCLUDE_DIRS};@MPFR_INCLUDES@")
    set(Elemental_INCLUDE_DIRS "${Elemental_INCLUDE_DIRS};@GMP_INCLUDES@")
 ENDIF()
-set(Elemental_INCLUDE_DIRS
-  "${Elemental_INCLUDE_DIRS};@Qt5Widgets_INCLUDE_DIRS@")
+
+IF(@EL_HAVE_QT5@)
+  set(QT_USE_IMPORTED_TARGETS TRUE)
+  find_package(Qt5Widgets)
+  if (NOT Qt5Widgets_FOUND)
+    set(Elemental_NOT_FOUND_MESSAGE "Elemental could not be found because dependency Qt5Widgets could not be found.")
+    set(Elemental_FOUND False)
+    return()
+  endif()
+
+  set(Elemental_INCLUDE_DIRS
+    "${Elemental_INCLUDE_DIRS};@Qt5Widgets_INCLUDE_DIRS@")
+ENDIF()
 
 set(Elemental_COMPILE_FLAGS "@CXX_FLAGS@")
 set(Elemental_LINK_FLAGS "@EL_LINK_FLAGS@")
 
-set(Elemental_DEFINITIONS "@Qt5Widgets_DEFINITIONS@")
+IF(@EL_HAVE_QT5@)
+  set(Elemental_DEFINITIONS "@Qt5Widgets_DEFINITIONS@")
+ENDIF()
 
 # Our library dependencies (contains definitions for IMPORTED targets)
 include("${CMAKE_CURRENT_LIST_DIR}/ElementalTargets.cmake")
